@@ -1,8 +1,475 @@
-`use client`;
-import { ImageUpload } from "@/components/ImageUpload";
+import { useState, useCallback } from "react";
+import {
+  Play,
+  Loader2,
+  Upload,
+  BarChart3,
+  MessageSquare,
+  Settings2,
+  Bug,
+  ChevronRight,
+  Microscope,
+  Cpu,
+  Sparkles,
+  GitBranch,
+} from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
 
-export default function Home() {
+import { TEXT, type Lang } from "@/lib/i18n";
+import {
+  ML_MODELS,
+  AI_MODELS,
+  buildTaxonomy,
+  SPECIES_TO_GENUS,
+  type PredictionResult,
+  type ChatMessage,
+} from "@/lib/types";
+
+import { LanguageToggle } from "@/components/LanguageToggle";
+import { ModelSelector } from "@/components/ModelSelector";
+import { ImageUpload } from "@/components/ImageUpload";
+import { GradCamOverlay } from "@/components/GradCamOverlay";
+import { ResultsPanel } from "@/components/ResultsPanel";
+import { TaxonomyTree } from "@/components/TaxonomyTree";
+import { ExplanationBlock } from "@/components/ExplanationBlock";
+import { ChatPanel } from "@/components/ChatPanel";
+import { InspectorPanel } from "@/components/InspectorPanel";
+
+// Mock inference for demo
+function mockInference(): PredictionResult {
+  const species = Math.random() > 0.5 ? "guttifer" : "peregrinus";
+  const confidence = 0.6 + Math.random() * 0.35;
+  const other = species === "guttifer" ? "peregrinus" : "guttifer";
+  const otherProb = 1 - confidence;
+  const level = confidence >= 0.6 ? "high" : confidence >= 0.5 ? "low" : "ood";
+
+  return {
+    species,
+    genus: SPECIES_TO_GENUS[species] ?? "Unknown",
+    confidence,
+    topK: [
+      { name: species, probability: confidence },
+      { name: other, probability: otherProb * 0.7 },
+      { name: "OOD / Unknown", probability: otherProb * 0.3 },
+    ],
+    confidenceLevel: level as "high" | "low" | "ood",
+    taxonomy: buildTaxonomy(species),
+  };
+}
+
+const MOCK_EXPLANATION = `• โมเดลให้ความสนใจบริเวณปีก (wing venation) เป็นหลัก ซึ่งเป็นลักษณะสำคัญทาง morphology
+• ตำแหน่ง heatmap เน้นที่ wing pattern บริเวณกึ่งกลาง สอดคล้องกับ diagnostic key ของ Culicoides
+• ความเชื่อมั่นสูง แสดงว่าโมเดลมี feature ที่ชัดเจนในการแยก species
+• ข้อจำกัด: การวิเคราะห์จากภาพเดียวอาจไม่ครอบคลุม variation ทั้งหมดของ species`;
+
+type NavSection = "upload" | "results" | "chat" | "inspector";
+
+export default function Index() {
+  const [lang, setLang] = useState<Lang>("th");
+  const t = TEXT[lang];
+
+  const [mlModel, setMlModel] = useState(ML_MODELS[0].id);
+  const [aiModel, setAiModel] = useState(AI_MODELS[0].id);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [, setImageFile] = useState<File | null>(null);
+  const [result, setResult] = useState<PredictionResult | null>(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [isChatLoading, setIsChatLoading] = useState(false);
+  const [activeNav, setActiveNav] = useState<NavSection>("upload");
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+
+  const handleImageSelect = useCallback((file: File, preview: string) => {
+    setImageFile(file);
+    setImagePreview(preview);
+    setResult(null);
+  }, []);
+
+  const handleClearImage = useCallback(() => {
+    setImageFile(null);
+    setImagePreview(null);
+    setResult(null);
+    setActiveNav("upload");
+  }, []);
+
+  const handleRunInference = useCallback(async () => {
+    if (!imagePreview) return;
+    setIsAnalyzing(true);
+    await new Promise((r) => setTimeout(r, 1500));
+    setResult(mockInference());
+    setIsAnalyzing(false);
+    setActiveNav("results");
+  }, [imagePreview]);
+
+  const handleChatSend = useCallback(
+    async (message: string) => {
+      setChatMessages((prev) => [...prev, { role: "user", content: message }]);
+      setIsChatLoading(true);
+      await new Promise((r) => setTimeout(r, 1000));
+      setChatMessages((prev) => [
+        ...prev,
+        {
+          role: "assistant",
+          content:
+            lang === "th"
+              ? "ริ้นฝอยทรายสกุล Culicoides มีลักษณะเด่นที่ wing pattern ซึ่งแตกต่างกันในแต่ละชนิด โมเดล EfficientNet ใช้ Grad-CAM เพื่อแสดงบริเวณที่สำคัญในการตัดสินใจ"
+              : "Culicoides sandflies have distinctive wing patterns that differ between species. The EfficientNet model uses Grad-CAM to highlight the key decision areas.",
+        },
+      ]);
+      setIsChatLoading(false);
+    },
+    [lang]
+  );
+
+  const selectedAiName = AI_MODELS.find((m) => m.id === aiModel)?.name ?? "";
+
+  const navItems: { id: NavSection; label: string; icon: React.ElementType }[] = [
+    { id: "upload", label: lang === "th" ? "อัปโหลด" : "Upload", icon: Upload },
+    { id: "results", label: lang === "th" ? "ผลลัพธ์" : "Results", icon: BarChart3 },
+    { id: "chat", label: lang === "th" ? "แชท AI" : "AI Chat", icon: MessageSquare },
+    { id: "inspector", label: "Inspector", icon: Settings2 },
+  ];
+
   return (
-    <div><ImageUpload /></div>
-  )
+    <div className="flex h-screen overflow-hidden bg-background">
+      {/* ─── LEFT SIDEBAR ─── */}
+      <aside
+        className={`flex-shrink-0 border-r bg-background transition-all duration-200 ${
+          sidebarOpen ? "w-60" : "w-0 overflow-hidden"
+        } hidden md:flex md:flex-col`}
+      >
+        {/* Logo / Title */}
+        <div className="flex h-14 items-center gap-2.5 border-b px-4">
+          <div className="flex h-7 w-7 items-center justify-center rounded-md bg-accent text-accent-foreground">
+            <Bug className="h-4 w-4" />
+          </div>
+          <div className="flex flex-col">
+            <span className="text-sm font-semibold text-foreground">Sandfly AI</span>
+            <span className="text-[10px] text-muted-foreground">v1.0 · Research</span>
+          </div>
+        </div>
+
+        {/* Navigation */}
+        <nav className="flex-1 space-y-1 p-3">
+          <p className="label-caps mb-2 px-3">Workspace</p>
+          {navItems.map((item) => (
+            <button
+              key={item.id}
+              onClick={() => setActiveNav(item.id)}
+              className={`next-nav-item w-full ${
+                activeNav === item.id ? "next-nav-item-active" : ""
+              }`}
+            >
+              <item.icon className="h-4 w-4" />
+              {item.label}
+            </button>
+          ))}
+        </nav>
+
+        {/* Model selectors in sidebar */}
+        <div className="border-t p-3 space-y-4">
+          <ModelSelector
+            label={t.selectMl}
+            models={ML_MODELS}
+            selectedId={mlModel}
+            onSelect={setMlModel}
+          />
+          <ModelSelector
+            label={t.selectAi}
+            models={AI_MODELS}
+            selectedId={aiModel}
+            onSelect={setAiModel}
+          />
+        </div>
+      </aside>
+
+      {/* ─── MAIN AREA ─── */}
+      <div className="flex flex-1 flex-col overflow-hidden">
+        {/* Top bar */}
+        <header className="flex h-14 flex-shrink-0 items-center justify-between border-b px-4 md:px-6">
+          <div className="flex items-center gap-2">
+            {/* Mobile burger */}
+            <button
+              className="md:hidden flex h-8 w-8 items-center justify-center rounded-md border text-muted-foreground hover:text-foreground"
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+            >
+              <Bug className="h-4 w-4" />
+            </button>
+
+            {/* Breadcrumb */}
+            <div className="flex items-center gap-1.5 text-sm">
+              <span className="text-muted-foreground">Sandfly AI</span>
+              <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/50" />
+              <span className="font-medium text-foreground">
+                {navItems.find((n) => n.id === activeNav)?.label}
+              </span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <LanguageToggle lang={lang} onChange={setLang} />
+            {imagePreview && !result && (
+              <button
+                onClick={handleRunInference}
+                disabled={isAnalyzing}
+                className="flex items-center gap-2 rounded-md bg-accent px-4 py-1.5 text-sm font-medium text-accent-foreground transition-colors hover:bg-accent/90 disabled:opacity-60"
+              >
+                {isAnalyzing ? (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    {t.analyzing}
+                  </>
+                ) : (
+                  <>
+                    <Play className="h-3.5 w-3.5" />
+                    {t.runInference}
+                  </>
+                )}
+              </button>
+            )}
+          </div>
+        </header>
+
+        {/* Mobile nav tabs */}
+        <div className="flex md:hidden border-b overflow-x-auto">
+          {navItems.map((item) => (
+            <button
+              key={item.id}
+              onClick={() => setActiveNav(item.id)}
+              className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-medium transition-colors border-b-2 whitespace-nowrap ${
+                activeNav === item.id
+                  ? "border-accent text-foreground"
+                  : "border-transparent text-muted-foreground"
+              }`}
+            >
+              <item.icon className="h-3.5 w-3.5" />
+              {item.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Content */}
+        <main className="flex-1 overflow-y-auto">
+          <div className="mx-auto max-w-4xl p-4 md:p-8">
+            <AnimatePresence mode="wait">
+              {/* UPLOAD section */}
+              {activeNav === "upload" && (
+                <motion.div
+                  key="upload"
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                  transition={{ duration: 0.2 }}
+                  className="space-y-6"
+                >
+                  <div className="space-y-1">
+                    <h1 className="text-xl font-semibold text-foreground flex items-center gap-2">
+                      <Microscope className="h-5 w-5 text-accent" />
+                      {t.upload}
+                    </h1>
+                    <p className="text-sm text-muted-foreground">{t.subtitle}</p>
+                  </div>
+
+                  {imagePreview && result ? (
+                    <GradCamOverlay
+                      imageSrc={imagePreview}
+                      visible={true}
+                      label="Grad-CAM"
+                      onClear={handleClearImage}
+                    />
+                  ) : (
+                    <ImageUpload
+                      label={t.upload}
+                      hint={t.uploadHint}
+                      onImageSelect={handleImageSelect}
+                      onClear={handleClearImage}
+                      preview={imagePreview}
+                    />
+                  )}
+
+                  {/* Mobile run button */}
+                  {imagePreview && !result && (
+                    <div className="flex justify-end md:hidden">
+                      <button
+                        onClick={handleRunInference}
+                        disabled={isAnalyzing}
+                        className="flex items-center gap-2 rounded-md bg-accent px-5 py-2.5 text-sm font-medium text-accent-foreground transition-colors hover:bg-accent/90 disabled:opacity-60"
+                      >
+                        {isAnalyzing ? (
+                          <>
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            {t.analyzing}
+                          </>
+                        ) : (
+                          <>
+                            <Play className="h-3.5 w-3.5" />
+                            {t.runInference}
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  )}
+                </motion.div>
+              )}
+
+              {/* RESULTS section */}
+              {activeNav === "results" && (
+                <motion.div
+                  key="results"
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                  transition={{ duration: 0.2 }}
+                  className="space-y-8"
+                >
+                  <div className="space-y-1">
+                    <h1 className="text-xl font-semibold text-foreground flex items-center gap-2">
+                      <BarChart3 className="h-5 w-5 text-accent" />
+                      {lang === "th" ? "ผลการวิเคราะห์" : "Analysis Results"}
+                    </h1>
+                    <p className="text-sm text-muted-foreground">
+                      {lang === "th"
+                        ? "ผลลัพธ์จากการวิเคราะห์ภาพด้วย ML model"
+                        : "Results from ML model image analysis"}
+                    </p>
+                  </div>
+
+                  {result ? (
+                    <>
+                      {/* Grad-CAM + Results side by side on larger screens */}
+                      <div className="grid gap-6 lg:grid-cols-2">
+                        <div className="space-y-4">
+                          <div className="flex items-center gap-2 mb-2">
+                            <Cpu className="h-4 w-4 text-muted-foreground" />
+                            <span className="text-sm font-medium text-foreground">
+                              {lang === "th" ? "ผลการจำแนก" : "Classification"}
+                            </span>
+                          </div>
+                          <ResultsPanel
+                            result={result}
+                            labels={t as unknown as Record<string, string>}
+                          />
+                        </div>
+                        {imagePreview && (
+                          <div className="space-y-4">
+                            <div className="flex items-center gap-2 mb-2">
+                              <Microscope className="h-4 w-4 text-muted-foreground" />
+                              <span className="text-sm font-medium text-foreground">Grad-CAM</span>
+                            </div>
+                            <GradCamOverlay
+                              imageSrc={imagePreview}
+                              visible={true}
+                              label="Grad-CAM"
+                              onClear={handleClearImage}
+                            />
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="grid gap-6 lg:grid-cols-2">
+                        <div>
+                          <div className="flex items-center gap-2 mb-3">
+                            <GitBranch className="h-4 w-4 text-muted-foreground" />
+                            <span className="text-sm font-medium text-foreground">
+                              {t.taxonomy}
+                            </span>
+                          </div>
+                          <TaxonomyTree taxonomy={result.taxonomy} label="" />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2 mb-3">
+                            <Sparkles className="h-4 w-4 text-muted-foreground" />
+                            <span className="text-sm font-medium text-foreground">
+                              {t.explanation}
+                            </span>
+                          </div>
+                          <ExplanationBlock
+                            text={MOCK_EXPLANATION}
+                            label=""
+                            aiModel={selectedAiName}
+                          />
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="card-surface flex flex-col items-center justify-center py-20">
+                      <BarChart3 className="h-8 w-8 text-muted-foreground/30 mb-3" />
+                      <p className="text-sm text-muted-foreground">
+                        {lang === "th"
+                          ? "ยังไม่มีผลการวิเคราะห์ กรุณาอัปโหลดภาพก่อน"
+                          : "No results yet. Please upload an image first."}
+                      </p>
+                    </div>
+                  )}
+                </motion.div>
+              )}
+
+              {/* CHAT section */}
+              {activeNav === "chat" && (
+                <motion.div
+                  key="chat"
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                  transition={{ duration: 0.2 }}
+                  className="space-y-6"
+                >
+                  <div className="space-y-1">
+                    <h1 className="text-xl font-semibold text-foreground flex items-center gap-2">
+                      <MessageSquare className="h-5 w-5 text-accent" />
+                      {t.chat}
+                    </h1>
+                    <p className="text-sm text-muted-foreground">
+                      {lang === "th"
+                        ? `ใช้ ${selectedAiName} เพื่อตอบคำถามเกี่ยวกับผลการวิเคราะห์`
+                        : `Using ${selectedAiName} to answer questions about analysis results`}
+                    </p>
+                  </div>
+
+                  <ChatPanel
+                    messages={chatMessages}
+                    onSend={handleChatSend}
+                    onClear={() => setChatMessages([])}
+                    labels={t as unknown as Record<string, string>}
+                    isLoading={isChatLoading}
+                  />
+                </motion.div>
+              )}
+
+              {/* INSPECTOR section */}
+              {activeNav === "inspector" && (
+                <motion.div
+                  key="inspector"
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                  transition={{ duration: 0.2 }}
+                  className="space-y-6"
+                >
+                  <div className="space-y-1">
+                    <h1 className="text-xl font-semibold text-foreground flex items-center gap-2">
+                      <Settings2 className="h-5 w-5 text-accent" />
+                      Inspector
+                    </h1>
+                    <p className="text-sm text-muted-foreground">
+                      {lang === "th"
+                        ? "ข้อมูลทางเทคนิค, parameters, และ API logs"
+                        : "Technical details, parameters, and API logs"}
+                    </p>
+                  </div>
+
+                  <InspectorPanel
+                    selectedMlModel={mlModel}
+                    selectedAiModel={aiModel}
+                    result={result}
+                    labels={t as unknown as Record<string, string>}
+                  />
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        </main>
+      </div>
+    </div>
+  );
 }
