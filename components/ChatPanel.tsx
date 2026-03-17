@@ -1,3 +1,5 @@
+"use client";
+
 import { useState } from "react";
 import { Send, Trash2 } from "lucide-react";
 import type { ChatMessage } from "@/lib/types";

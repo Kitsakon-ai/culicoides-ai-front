@@ -7,8 +7,8 @@ import { cn } from "@/lib/utils";
 const geist = Geist({subsets:['latin'],variable:'--font-sans'});
 
 export const metadata: Metadata = {
-  title: "Sandfly AI",
-  description: "ระบบระบุชนิดริ้นฝอยทราย — Explainable AI",
+  title: "Culicoides AI",
+  description: "ระบบระบุชนิดCulicoides — Explainable AI",
 };
 
 export default function RootLayout({

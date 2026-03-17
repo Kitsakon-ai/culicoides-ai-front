@@ -13,19 +13,41 @@ export interface AIModel {
   provider: string;
 }
 
-export interface PredictionResult {
+export type PredictionResult = {
   species: string;
   genus: string;
   confidence: number;
   topK: { name: string; probability: number }[];
   confidenceLevel: "high" | "low" | "ood";
-  taxonomy: Record<string, string>;
-}
+  taxonomy: {
+    kingdom: string;
+    phylum: string;
+    class: string;
+    order: string;
+    family: string;
+    genus: string;
+    species: string;
+  };
+  gradcam?: string;
+  explanation?: string;
+};
 
-export interface ChatMessage {
+export type ChatMessage = {
   role: "user" | "assistant";
   content: string;
-}
+};
+
+export type HistoryItem = {
+  id: number;
+  createdAt: string;
+  filename?: string | null;
+  species: string;
+  genus: string;
+  confidence: number;
+  confidenceLevel: "high" | "low" | "ood";
+  gradcam: boolean;
+  modelUsed?: string | null;
+};
 
 export const ML_MODELS: MLModel[] = [
   {
@@ -54,9 +76,9 @@ export const ML_MODELS: MLModel[] = [
   },
 ];
 
-export const AI_MODELS: AIModel[] = [
-  { id: "gemini", name: "Gemini 2.5 Flash", provider: "Google" },
-  { id: "gpt", name: "GPT-4.1 Mini", provider: "OpenAI" },
+export const AI_MODELS = [
+  { id: "gpt-4.1-mini", name: "GPT-4.1 Mini", provider: "openai" },
+  { id: "gemini-2.5-flash", name: "Gemini 2.5 Flash", provider: "gemini" },
 ];
 
 export const SPECIES_TO_GENUS: Record<string, string> = {

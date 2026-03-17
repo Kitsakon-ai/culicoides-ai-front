@@ -1,4 +1,6 @@
-import { useState, useCallback } from "react";
+"use client";
+
+import { useState, useCallback, useEffect } from "react";
 import {
   Play,
   Loader2,
@@ -19,10 +21,9 @@ import { TEXT, type Lang } from "@/lib/i18n";
 import {
   ML_MODELS,
   AI_MODELS,
-  buildTaxonomy,
-  SPECIES_TO_GENUS,
   type PredictionResult,
   type ChatMessage,
+  type HistoryItem,
 } from "@/lib/types";
 
 import { LanguageToggle } from "@/components/LanguageToggle";
@@ -34,33 +35,9 @@ import { TaxonomyTree } from "@/components/TaxonomyTree";
 import { ExplanationBlock } from "@/components/ExplanationBlock";
 import { ChatPanel } from "@/components/ChatPanel";
 import { InspectorPanel } from "@/components/InspectorPanel";
+import { HistoryPanel } from "@/components/HistoryPanel";
 
-// Mock inference for demo
-function mockInference(): PredictionResult {
-  const species = Math.random() > 0.5 ? "guttifer" : "peregrinus";
-  const confidence = 0.6 + Math.random() * 0.35;
-  const other = species === "guttifer" ? "peregrinus" : "guttifer";
-  const otherProb = 1 - confidence;
-  const level = confidence >= 0.6 ? "high" : confidence >= 0.5 ? "low" : "ood";
-
-  return {
-    species,
-    genus: SPECIES_TO_GENUS[species] ?? "Unknown",
-    confidence,
-    topK: [
-      { name: species, probability: confidence },
-      { name: other, probability: otherProb * 0.7 },
-      { name: "OOD / Unknown", probability: otherProb * 0.3 },
-    ],
-    confidenceLevel: level as "high" | "low" | "ood",
-    taxonomy: buildTaxonomy(species),
-  };
-}
-
-const MOCK_EXPLANATION = `• โมเดลให้ความสนใจบริเวณปีก (wing venation) เป็นหลัก ซึ่งเป็นลักษณะสำคัญทาง morphology
-• ตำแหน่ง heatmap เน้นที่ wing pattern บริเวณกึ่งกลาง สอดคล้องกับ diagnostic key ของ Culicoides
-• ความเชื่อมั่นสูง แสดงว่าโมเดลมี feature ที่ชัดเจนในการแยก species
-• ข้อจำกัด: การวิเคราะห์จากภาพเดียวอาจไม่ครอบคลุม variation ทั้งหมดของ species`;
+import { predictImage, chatWithPrediction, getHistory } from "@/lib/api";
 
 type NavSection = "upload" | "results" | "chat" | "inspector";
 
@@ -71,55 +48,130 @@ export default function Index() {
   const [mlModel, setMlModel] = useState(ML_MODELS[0].id);
   const [aiModel, setAiModel] = useState(AI_MODELS[0].id);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [, setImageFile] = useState<File | null>(null);
+  const [imageFile, setImageFile] = useState<File | null>(null);
   const [result, setResult] = useState<PredictionResult | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [isChatLoading, setIsChatLoading] = useState(false);
   const [activeNav, setActiveNav] = useState<NavSection>("upload");
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [historyItems, setHistoryItems] = useState<HistoryItem[]>([]);
 
   const handleImageSelect = useCallback((file: File, preview: string) => {
     setImageFile(file);
     setImagePreview(preview);
     setResult(null);
+    setChatMessages([]);
   }, []);
 
   const handleClearImage = useCallback(() => {
     setImageFile(null);
     setImagePreview(null);
     setResult(null);
+    setChatMessages([]);
     setActiveNav("upload");
   }, []);
 
   const handleRunInference = useCallback(async () => {
-    if (!imagePreview) return;
+  if (!imageFile) return;
+
+  try {
     setIsAnalyzing(true);
-    await new Promise((r) => setTimeout(r, 1500));
-    setResult(mockInference());
-    setIsAnalyzing(false);
+
+    const data = await predictImage(imageFile, mlModel);
+
+    const explainRes = await chatWithPrediction({
+      message: "ช่วยอธิบายผล Explainable AI โดยเน้นลักษณะของปีกและ heatmap ตอบ 3-5 บรรทัด",
+      ai_model: aiModel,
+      mode: "explanation",
+      prediction: data,
+      xai: {
+        highlightedRegions: ["กลางปีก", "ขอบปีก", "ลำตัว"],
+        confidenceDrivers: [
+          "Grad-CAM เน้นบริเวณปีกเป็นหลัก",
+          "ลักษณะบริเวณปีกสอดคล้องกับชนิดที่ทำนาย",
+        ],
+        warningFlags:
+          data.confidenceLevel === "low" || data.confidenceLevel === "ood"
+            ? ["ผลยังเป็นเบื้องต้น"]
+            : [],
+      },
+      images: {
+        original: imagePreview,
+        heatmap: data.gradcam || null,
+      },
+    });
+
+    setResult({
+      ...data,
+      explanation: explainRes.answer,
+    });
+
+    setChatMessages([
+      { role: "assistant", content: explainRes.answer },
+    ]);
+
     setActiveNav("results");
-  }, [imagePreview]);
+
+    const history = await getHistory(20);
+    setHistoryItems(history.items);
+  } catch (error) {
+    console.error(error);
+    alert(error instanceof Error ? error.message : "Prediction failed");
+  } finally {
+    setIsAnalyzing(false);
+  }
+}, [imageFile, imagePreview, mlModel, aiModel]);
 
   const handleChatSend = useCallback(
-    async (message: string) => {
-      setChatMessages((prev) => [...prev, { role: "user", content: message }]);
-      setIsChatLoading(true);
-      await new Promise((r) => setTimeout(r, 1000));
+  async (message: string) => {
+    const nextUserMessage = { role: "user" as const, content: message };
+    setChatMessages((prev) => [...prev, nextUserMessage]);
+    setIsChatLoading(true);
+
+    try {
+      const res = await chatWithPrediction({
+        message,
+        ai_model: aiModel,
+        mode: "vision",
+        prediction: result,
+        history: [...chatMessages, nextUserMessage],
+        xai: {
+          highlightedRegions: ["wing", "body"],
+          confidenceDrivers: [
+            "Grad-CAM เน้นบริเวณปีก",
+            "โมเดลให้คะแนนชนิดนี้สูงสุดใน top-k",
+          ],
+          warningFlags:
+            result?.confidenceLevel === "low" || result?.confidenceLevel === "ood"
+              ? ["ผลยังเป็นเบื้องต้น"]
+              : [],
+        },
+        images: {
+          original: imagePreview,
+          heatmap: result?.gradcam || null,
+        },
+      });
+
+      setChatMessages((prev) => [
+        ...prev,
+        { role: "assistant", content: res.answer },
+      ]);
+    } catch (error) {
+      console.error(error);
       setChatMessages((prev) => [
         ...prev,
         {
           role: "assistant",
-          content:
-            lang === "th"
-              ? "ริ้นฝอยทรายสกุล Culicoides มีลักษณะเด่นที่ wing pattern ซึ่งแตกต่างกันในแต่ละชนิด โมเดล EfficientNet ใช้ Grad-CAM เพื่อแสดงบริเวณที่สำคัญในการตัดสินใจ"
-              : "Culicoides sandflies have distinctive wing patterns that differ between species. The EfficientNet model uses Grad-CAM to highlight the key decision areas.",
+          content: lang === "th" ? "เกิดข้อผิดพลาดในการแชท" : "Chat error",
         },
       ]);
+    } finally {
       setIsChatLoading(false);
-    },
-    [lang]
-  );
+    }
+  },
+  [aiModel, result, chatMessages, imagePreview, lang]
+);
 
   const selectedAiName = AI_MODELS.find((m) => m.id === aiModel)?.name ?? "";
 
@@ -130,26 +182,29 @@ export default function Index() {
     { id: "inspector", label: "Inspector", icon: Settings2 },
   ];
 
+  useEffect(() => {
+    getHistory(20)
+      .then((res) => setHistoryItems(res.items))
+      .catch((err) => console.error(err));
+  }, []);
+
   return (
     <div className="flex h-screen overflow-hidden bg-background">
-      {/* ─── LEFT SIDEBAR ─── */}
       <aside
-        className={`flex-shrink-0 border-r bg-background transition-all duration-200 ${
+        className={`hidden md:flex md:flex-col flex-shrink-0 border-r bg-background transition-all duration-200 ${
           sidebarOpen ? "w-60" : "w-0 overflow-hidden"
-        } hidden md:flex md:flex-col`}
+        }`}
       >
-        {/* Logo / Title */}
         <div className="flex h-14 items-center gap-2.5 border-b px-4">
           <div className="flex h-7 w-7 items-center justify-center rounded-md bg-accent text-accent-foreground">
             <Bug className="h-4 w-4" />
           </div>
           <div className="flex flex-col">
-            <span className="text-sm font-semibold text-foreground">Sandfly AI</span>
-            <span className="text-[10px] text-muted-foreground">v1.0 · Research</span>
+            <span className="text-sm font-semibold text-foreground">Culicoides AI</span>
+            <span className="text-[10px] text-muted-foreground">Research</span>
           </div>
         </div>
 
-        {/* Navigation */}
         <nav className="flex-1 space-y-1 p-3">
           <p className="label-caps mb-2 px-3">Workspace</p>
           {navItems.map((item) => (
@@ -166,7 +221,6 @@ export default function Index() {
           ))}
         </nav>
 
-        {/* Model selectors in sidebar */}
         <div className="border-t p-3 space-y-4">
           <ModelSelector
             label={t.selectMl}
@@ -183,12 +237,9 @@ export default function Index() {
         </div>
       </aside>
 
-      {/* ─── MAIN AREA ─── */}
       <div className="flex flex-1 flex-col overflow-hidden">
-        {/* Top bar */}
         <header className="flex h-14 flex-shrink-0 items-center justify-between border-b px-4 md:px-6">
           <div className="flex items-center gap-2">
-            {/* Mobile burger */}
             <button
               className="md:hidden flex h-8 w-8 items-center justify-center rounded-md border text-muted-foreground hover:text-foreground"
               onClick={() => setSidebarOpen(!sidebarOpen)}
@@ -196,9 +247,8 @@ export default function Index() {
               <Bug className="h-4 w-4" />
             </button>
 
-            {/* Breadcrumb */}
             <div className="flex items-center gap-1.5 text-sm">
-              <span className="text-muted-foreground">Sandfly AI</span>
+              <span className="text-muted-foreground">Culicoides AI</span>
               <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/50" />
               <span className="font-medium text-foreground">
                 {navItems.find((n) => n.id === activeNav)?.label}
@@ -230,7 +280,6 @@ export default function Index() {
           </div>
         </header>
 
-        {/* Mobile nav tabs */}
         <div className="flex md:hidden border-b overflow-x-auto">
           {navItems.map((item) => (
             <button
@@ -248,11 +297,9 @@ export default function Index() {
           ))}
         </div>
 
-        {/* Content */}
         <main className="flex-1 overflow-y-auto">
           <div className="mx-auto max-w-4xl p-4 md:p-8">
             <AnimatePresence mode="wait">
-              {/* UPLOAD section */}
               {activeNav === "upload" && (
                 <motion.div
                   key="upload"
@@ -272,10 +319,10 @@ export default function Index() {
 
                   {imagePreview && result ? (
                     <GradCamOverlay
-                      imageSrc={imagePreview}
-                      visible={true}
-                      label="Grad-CAM"
-                      onClear={handleClearImage}
+                    imageSrc={(result?.gradcam ?? imagePreview)!}
+                    visible={true}
+                    label="Grad-CAM"
+                    onClear={handleClearImage}
                     />
                   ) : (
                     <ImageUpload
@@ -287,7 +334,6 @@ export default function Index() {
                     />
                   )}
 
-                  {/* Mobile run button */}
                   {imagePreview && !result && (
                     <div className="flex justify-end md:hidden">
                       <button
@@ -312,7 +358,6 @@ export default function Index() {
                 </motion.div>
               )}
 
-              {/* RESULTS section */}
               {activeNav === "results" && (
                 <motion.div
                   key="results"
@@ -336,7 +381,6 @@ export default function Index() {
 
                   {result ? (
                     <>
-                      {/* Grad-CAM + Results side by side on larger screens */}
                       <div className="grid gap-6 lg:grid-cols-2">
                         <div className="space-y-4">
                           <div className="flex items-center gap-2 mb-2">
@@ -350,6 +394,7 @@ export default function Index() {
                             labels={t as unknown as Record<string, string>}
                           />
                         </div>
+
                         {imagePreview && (
                           <div className="space-y-4">
                             <div className="flex items-center gap-2 mb-2">
@@ -357,7 +402,7 @@ export default function Index() {
                               <span className="text-sm font-medium text-foreground">Grad-CAM</span>
                             </div>
                             <GradCamOverlay
-                              imageSrc={imagePreview}
+                              imageSrc={result?.gradcam ?? imagePreview ?? ""}
                               visible={true}
                               label="Grad-CAM"
                               onClear={handleClearImage}
@@ -376,6 +421,7 @@ export default function Index() {
                           </div>
                           <TaxonomyTree taxonomy={result.taxonomy} label="" />
                         </div>
+
                         <div>
                           <div className="flex items-center gap-2 mb-3">
                             <Sparkles className="h-4 w-4 text-muted-foreground" />
@@ -384,7 +430,10 @@ export default function Index() {
                             </span>
                           </div>
                           <ExplanationBlock
-                            text={MOCK_EXPLANATION}
+                            text={
+                              result?.explanation ||
+                              (lang === "th" ? "ยังไม่มีคำอธิบายจาก AI" : "No AI explanation yet.")
+                            }
                             label=""
                             aiModel={selectedAiName}
                           />
@@ -404,7 +453,6 @@ export default function Index() {
                 </motion.div>
               )}
 
-              {/* CHAT section */}
               {activeNav === "chat" && (
                 <motion.div
                   key="chat"
@@ -436,7 +484,6 @@ export default function Index() {
                 </motion.div>
               )}
 
-              {/* INSPECTOR section */}
               {activeNav === "inspector" && (
                 <motion.div
                   key="inspector"
@@ -464,6 +511,7 @@ export default function Index() {
                     result={result}
                     labels={t as unknown as Record<string, string>}
                   />
+                  <HistoryPanel items={historyItems} />
                 </motion.div>
               )}
             </AnimatePresence>

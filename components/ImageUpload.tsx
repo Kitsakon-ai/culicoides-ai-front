@@ -1,3 +1,5 @@
+"use client";
+
 import { useCallback, useState } from "react";
 import { Upload, X, Image as ImageIcon } from "lucide-react";
 

@@ -1,4 +1,6 @@
-import { useState } from "react";
+"use client";
+
+import { use, useState } from "react";
 import type { PredictionResult } from "@/lib/types";
 
 interface InspectorPanelProps {
