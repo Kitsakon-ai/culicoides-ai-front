@@ -37,7 +37,13 @@ import { ChatPanel } from "@/components/ChatPanel";
 import { InspectorPanel } from "@/components/InspectorPanel";
 import { HistoryPanel } from "@/components/HistoryPanel";
 
-import { predictImage, chatWithPrediction, getHistory } from "@/lib/api";
+import {
+  predictImage,
+  chatWithPrediction,
+  getHistory,
+  uploadImage,
+  dataUrlToFile,
+} from "@/lib/api";
 
 type NavSection = "upload" | "results" | "chat" | "inspector";
 
@@ -80,27 +86,36 @@ export default function Index() {
 
     const data = await predictImage(imageFile, mlModel);
 
-    const explainRes = await chatWithPrediction({
-      message: "ช่วยอธิบายผล Explainable AI โดยเน้นลักษณะของปีกและ heatmap ตอบ 3-5 บรรทัด",
-      ai_model: aiModel,
-      mode: "explanation",
-      prediction: data,
-      xai: {
-        highlightedRegions: ["กลางปีก", "ขอบปีก", "ลำตัว"],
-        confidenceDrivers: [
-          "Grad-CAM เน้นบริเวณปีกเป็นหลัก",
-          "ลักษณะบริเวณปีกสอดคล้องกับชนิดที่ทำนาย",
-        ],
-        warningFlags:
-          data.confidenceLevel === "low" || data.confidenceLevel === "ood"
-            ? ["ผลยังเป็นเบื้องต้น"]
-            : [],
-      },
-      images: {
-        original: imagePreview,
-        heatmap: data.gradcam || null,
-      },
-    });
+    const originalUpload = imageFile
+  ? await uploadImage(imageFile)
+  : null;
+
+      const heatmapUpload =
+        data.gradcam
+          ? await uploadImage(dataUrlToFile(data.gradcam, "gradcam.png"))
+          : null;
+
+      const explainRes = await chatWithPrediction({
+        message: "ช่วยอธิบายผล Explainable AI โดยเน้นลักษณะของปีกและ heatmap ตอบ 3-5 บรรทัด",
+        ai_model: aiModel,
+        mode: "explanation",
+        prediction: data,
+        xai: {
+          highlightedRegions: ["กลางปีก", "ขอบปีก", "ลำตัว"],
+          confidenceDrivers: [
+            "Grad-CAM เน้นบริเวณปีกเป็นหลัก",
+            "ลักษณะบริเวณปีกสอดคล้องกับชนิดที่ทำนาย",
+          ],
+          warningFlags:
+            data.confidenceLevel === "low" || data.confidenceLevel === "ood"
+              ? ["ผลยังเป็นเบื้องต้น"]
+              : [],
+        },
+        images: {
+          original: originalUpload?.url ?? null,
+          heatmap: heatmapUpload?.url ?? null,
+        },
+      });
 
     setResult({
       ...data,
@@ -121,7 +136,7 @@ export default function Index() {
   } finally {
     setIsAnalyzing(false);
   }
-}, [imageFile, imagePreview, mlModel, aiModel]);
+}, [imageFile, mlModel, aiModel]);
 
   const handleChatSend = useCallback(
   async (message: string) => {
@@ -130,6 +145,15 @@ export default function Index() {
     setIsChatLoading(true);
 
     try {
+      const originalUpload = imageFile
+        ? await uploadImage(imageFile)
+        : null;
+
+      const heatmapUpload =
+        result?.gradcam
+          ? await uploadImage(dataUrlToFile(result.gradcam, "gradcam.png"))
+          : null;
+
       const res = await chatWithPrediction({
         message,
         ai_model: aiModel,
@@ -148,8 +172,8 @@ export default function Index() {
               : [],
         },
         images: {
-          original: imagePreview,
-          heatmap: result?.gradcam || null,
+          original: originalUpload?.url ?? null,
+          heatmap: heatmapUpload?.url ?? null,
         },
       });
 
@@ -170,7 +194,7 @@ export default function Index() {
       setIsChatLoading(false);
     }
   },
-  [aiModel, result, chatMessages, imagePreview, lang]
+  [aiModel, result, chatMessages, imageFile, lang]
 );
 
   const selectedAiName = AI_MODELS.find((m) => m.id === aiModel)?.name ?? "";

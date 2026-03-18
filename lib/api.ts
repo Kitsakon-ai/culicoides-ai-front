@@ -119,3 +119,34 @@ export async function getHistory(limit = 20): Promise<{ items: HistoryItem[] }> 
 
   return res.json();
 }
+
+export async function uploadImage(file: File): Promise<{ url: string; pathname: string }> {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const res = await fetch("/api/upload", {
+    method: "POST",
+    body: formData,
+  });
+
+  if (!res.ok) {
+    throw new Error(await getErrorMessage(res, "Upload failed"));
+  }
+
+  return res.json();
+}
+
+export function dataUrlToFile(dataUrl: string, filename: string): File {
+  const [meta, base64] = dataUrl.split(",");
+  const mimeMatch = meta.match(/data:(.*?);base64/);
+  const mime = mimeMatch?.[1] || "image/png";
+
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+
+  return new File([bytes], filename, { type: mime });
+}
