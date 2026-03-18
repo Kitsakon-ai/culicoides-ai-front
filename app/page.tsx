@@ -41,8 +41,6 @@ import {
   predictImage,
   chatWithPrediction,
   getHistory,
-  uploadImage,
-  dataUrlToFile,
 } from "@/lib/api";
 
 type NavSection = "upload" | "results" | "chat" | "inspector";
@@ -53,7 +51,7 @@ export default function Index() {
 
   const [mlModel, setMlModel] = useState(ML_MODELS[0].id);
   const [aiModel, setAiModel] = useState(AI_MODELS[0].id);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null); // data URL
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [result, setResult] = useState<PredictionResult | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -79,24 +77,16 @@ export default function Index() {
   }, []);
 
   const handleRunInference = useCallback(async () => {
-  if (!imageFile) return;
+    if (!imageFile) return;
 
-  try {
-    setIsAnalyzing(true);
+    try {
+      setIsAnalyzing(true);
 
-    const data = await predictImage(imageFile, mlModel);
-
-    const originalUpload = imageFile
-  ? await uploadImage(imageFile)
-  : null;
-
-      const heatmapUpload =
-        data.gradcam
-          ? await uploadImage(dataUrlToFile(data.gradcam, "gradcam.png"))
-          : null;
+      const data = await predictImage(imageFile, mlModel);
 
       const explainRes = await chatWithPrediction({
-        message: "ช่วยอธิบายผล Explainable AI โดยเน้นลักษณะของปีกและ heatmap ตอบ 3-5 บรรทัด",
+        message:
+          "ช่วยอธิบายผล Explainable AI โดยเน้นลักษณะของปีกจากภาพต้นฉบับร่วมกับ heatmap ตอบ 3-5 บรรทัด",
         ai_model: aiModel,
         mode: "explanation",
         prediction: data,
@@ -112,90 +102,78 @@ export default function Index() {
               : [],
         },
         images: {
-          original: originalUpload?.url ?? null,
-          heatmap: heatmapUpload?.url ?? null,
+          original: imagePreview ?? null,
+          heatmap: data.gradcam ?? null,
         },
       });
 
-    setResult({
-      ...data,
-      explanation: explainRes.answer,
-    });
+      setResult({
+        ...data,
+        explanation: explainRes.answer,
+      });
 
-    setChatMessages([
-      { role: "assistant", content: explainRes.answer },
-    ]);
+      setChatMessages([{ role: "assistant", content: explainRes.answer }]);
+      setActiveNav("results");
 
-    setActiveNav("results");
-
-    const history = await getHistory(20);
-    setHistoryItems(history.items);
-  } catch (error: any) {
-    console.error(error);
-    alert(error.message);
-  } finally {
-    setIsAnalyzing(false);
-  }
-}, [imageFile, mlModel, aiModel]);
+      const history = await getHistory(20);
+      setHistoryItems(history.items);
+    } catch (error: any) {
+      console.error(error);
+      alert(error.message || "เกิดข้อผิดพลาด");
+    } finally {
+      setIsAnalyzing(false);
+    }
+  }, [imageFile, mlModel, aiModel, imagePreview]);
 
   const handleChatSend = useCallback(
-  async (message: string) => {
-    const nextUserMessage = { role: "user" as const, content: message };
-    setChatMessages((prev) => [...prev, nextUserMessage]);
-    setIsChatLoading(true);
+    async (message: string) => {
+      const nextUserMessage = { role: "user" as const, content: message };
+      setChatMessages((prev) => [...prev, nextUserMessage]);
+      setIsChatLoading(true);
 
-    try {
-      const originalUpload = imageFile
-        ? await uploadImage(imageFile)
-        : null;
+      try {
+        const res = await chatWithPrediction({
+          message,
+          ai_model: aiModel,
+          mode: "vision",
+          prediction: result,
+          history: [...chatMessages, nextUserMessage],
+          xai: {
+            highlightedRegions: ["wing", "body"],
+            confidenceDrivers: [
+              "Grad-CAM เน้นบริเวณปีก",
+              "โมเดลให้คะแนนชนิดนี้สูงสุดใน top-k",
+            ],
+            warningFlags:
+              result?.confidenceLevel === "low" || result?.confidenceLevel === "ood"
+                ? ["ผลยังเป็นเบื้องต้น"]
+                : [],
+          },
+          images: {
+            original: imagePreview ?? null,
+            heatmap: result?.gradcam ?? null,
+          },
+        });
 
-      const heatmapUpload =
-        result?.gradcam
-          ? await uploadImage(dataUrlToFile(result.gradcam, "gradcam.png"))
-          : null;
-
-      const res = await chatWithPrediction({
-        message,
-        ai_model: aiModel,
-        mode: "vision",
-        prediction: result,
-        history: [...chatMessages, nextUserMessage],
-        xai: {
-          highlightedRegions: ["wing", "body"],
-          confidenceDrivers: [
-            "Grad-CAM เน้นบริเวณปีก",
-            "โมเดลให้คะแนนชนิดนี้สูงสุดใน top-k",
-          ],
-          warningFlags:
-            result?.confidenceLevel === "low" || result?.confidenceLevel === "ood"
-              ? ["ผลยังเป็นเบื้องต้น"]
-              : [],
-        },
-        images: {
-          original: originalUpload?.url ?? null,
-          heatmap: heatmapUpload?.url ?? null,
-        },
-      });
-
-      setChatMessages((prev) => [
-        ...prev,
-        { role: "assistant", content: res.answer },
-      ]);
-    } catch (error) {
-      console.error(error);
-      setChatMessages((prev) => [
-        ...prev,
-        {
-          role: "assistant",
-          content: lang === "th" ? "เกิดข้อผิดพลาดในการแชท" : "Chat error",
-        },
-      ]);
-    } finally {
-      setIsChatLoading(false);
-    }
-  },
-  [aiModel, result, chatMessages, imageFile, lang]
-);
+        setChatMessages((prev) => [
+          ...prev,
+          { role: "assistant", content: res.answer },
+        ]);
+      } catch (error) {
+        console.error(error);
+        setChatMessages((prev) => [
+          ...prev,
+          {
+            role: "assistant",
+            content: lang === "th" ? "เกิดข้อผิดพลาดในการแชท" : "Chat error",
+          },
+        ]);
+      } finally {
+        setIsChatLoading(false);
+      }
+    },
+    [aiModel, result, chatMessages, imagePreview, lang]
+  );
 
   const selectedAiName = AI_MODELS.find((m) => m.id === aiModel)?.name ?? "";
 
@@ -343,10 +321,10 @@ export default function Index() {
 
                   {imagePreview && result ? (
                     <GradCamOverlay
-                    imageSrc={(result?.gradcam ?? imagePreview)!}
-                    visible={true}
-                    label="Grad-CAM"
-                    onClear={handleClearImage}
+                      imageSrc={(result?.gradcam ?? imagePreview)!}
+                      visible={true}
+                      label="Grad-CAM"
+                      onClear={handleClearImage}
                     />
                   ) : (
                     <ImageUpload

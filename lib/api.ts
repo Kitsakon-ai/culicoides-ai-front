@@ -1,6 +1,6 @@
 import type { PredictionResult, HistoryItem } from "@/lib/types";
 
-const API_URL = (process.env.NEXT_PUBLIC_FASTAPI_URL ?? "").replace(/\/+$/, "");
+const API_URL = (process.env.NEXT_PUBLIC_API_URL ?? "").replace(/\/+$/, "");
 
 async function getErrorMessage(res: Response, fallback: string): Promise<string> {
   const contentType = res.headers.get("content-type") || "";
@@ -10,6 +10,7 @@ async function getErrorMessage(res: Response, fallback: string): Promise<string>
       const data = await res.json();
       if (typeof data?.detail === "string") return data.detail;
       if (typeof data?.message === "string") return data.message;
+      if (typeof data?.error === "string") return data.error;
       return JSON.stringify(data);
     }
 
@@ -50,25 +51,6 @@ export async function predictImage(
   return res.json();
 }
 
-export async function explainPrediction(payload: {
-  species: string;
-  confidence: number;
-  topK: { name: string; probability: number }[];
-}): Promise<{ explanation: string }> {
-  const res = await fetch(`${API_URL}/explain`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-    cache: "no-store",
-  });
-
-  if (!res.ok) {
-    throw new Error(await getErrorMessage(res, "Explain failed"));
-  }
-
-  return res.json();
-}
-
 export async function chatWithPrediction(payload: {
   message: string;
   ai_model: string;
@@ -80,11 +62,11 @@ export async function chatWithPrediction(payload: {
     warningFlags?: string[];
   };
   images?: {
-    original?: string | null;
-    heatmap?: string | null;
+    original?: string | null; // data URL
+    heatmap?: string | null;  // data URL
   };
   history?: { role: "user" | "assistant"; content: string }[];
-}) {
+}): Promise<{ answer: string }> {
   const provider = payload.ai_model.startsWith("gpt") ? "openai" : "gemini";
 
   const res = await fetch("/api/chat", {
@@ -96,14 +78,11 @@ export async function chatWithPrediction(payload: {
       ...payload,
       provider,
     }),
+    cache: "no-store",
   });
 
   if (!res.ok) {
-    let message = "Chat failed";
-    try {
-      const data = await res.json();
-      message = data.error || message;
-    } catch {}
+    const message = await getErrorMessage(res, "Chat failed");
     throw new Error(message);
   }
 
