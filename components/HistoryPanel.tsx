@@ -33,7 +33,7 @@ export function HistoryPanel({ items }: Props) {
                 </div>
               </div>
               <div className="mt-2 text-xs text-muted-foreground">
-                {item.created_at}
+                {item.createdAt}
               </div>
             </div>
           ))
