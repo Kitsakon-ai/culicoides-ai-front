@@ -1,6 +1,6 @@
 import type { PredictionResult, HistoryItem } from "@/lib/types";
 
-const API_URL = (process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000").replace(/\/+$/, "");
+const API_URL = (process.env.NEXT_PUBLIC_FASTAPI_URL ?? "").replace(/\/+$/, "");
 
 async function getErrorMessage(res: Response, fallback: string): Promise<string> {
   const contentType = res.headers.get("content-type") || "";
