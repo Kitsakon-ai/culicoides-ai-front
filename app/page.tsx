@@ -115,9 +115,9 @@ export default function Index() {
 
     const history = await getHistory(20);
     setHistoryItems(history.items);
-  } catch (error) {
+  } catch (error: any) {
     console.error(error);
-    alert(error instanceof Error ? error.message : "Prediction failed");
+    alert(error.message);
   } finally {
     setIsAnalyzing(false);
   }

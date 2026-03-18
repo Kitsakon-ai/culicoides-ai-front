@@ -35,7 +35,16 @@ export async function predictImage(
   });
 
   if (!res.ok) {
-    throw new Error(await getErrorMessage(res, "Prediction failed"));
+    const message = await getErrorMessage(res, "Prediction failed");
+
+    if (
+      message.includes("insufficient_quota") ||
+      message.toLowerCase().includes("quota")
+    ) {
+      throw new Error("โควต้าการใช้งานเต็มแล้ว กรุณาลองใหม่ภายหลัง");
+    }
+
+    throw new Error(message);
   }
 
   return res.json();
