@@ -41,6 +41,8 @@ import {
   predictImage,
   chatWithPrediction,
   getHistory,
+  uploadImage,
+  dataUrlToFile,
 } from "@/lib/api";
 
 type NavSection = "upload" | "results" | "chat" | "inspector";
@@ -84,6 +86,12 @@ export default function Index() {
 
       const data = await predictImage(imageFile, mlModel);
 
+      const originalUpload = await uploadImage(imageFile);
+
+      const heatmapUpload = data.gradcam
+        ? await uploadImage(dataUrlToFile(data.gradcam, "gradcam.png"))
+        : null;
+
       const explainRes = await chatWithPrediction({
         message:
           "ช่วยอธิบายผล Explainable AI โดยเน้นลักษณะของปีกจากภาพต้นฉบับร่วมกับ heatmap ตอบ 3-5 บรรทัด",
@@ -102,8 +110,8 @@ export default function Index() {
               : [],
         },
         images: {
-          original: imagePreview ?? null,
-          heatmap: data.gradcam ?? null,
+          original: originalUpload.url,
+          heatmap: heatmapUpload?.url ?? null,
         },
       });
 
@@ -123,7 +131,7 @@ export default function Index() {
     } finally {
       setIsAnalyzing(false);
     }
-  }, [imageFile, mlModel, aiModel, imagePreview]);
+  }, [imageFile, mlModel, aiModel]);
 
   const handleChatSend = useCallback(
     async (message: string) => {
@@ -132,6 +140,15 @@ export default function Index() {
       setIsChatLoading(true);
 
       try {
+        const originalUpload = imageFile
+          ? await uploadImage(imageFile)
+          : null;
+
+        const heatmapUpload =
+          result?.gradcam
+            ? await uploadImage(dataUrlToFile(result.gradcam, "gradcam.png"))
+            : null;
+
         const res = await chatWithPrediction({
           message,
           ai_model: aiModel,
@@ -150,8 +167,8 @@ export default function Index() {
                 : [],
           },
           images: {
-            original: imagePreview ?? null,
-            heatmap: result?.gradcam ?? null,
+            original: originalUpload?.url ?? null,
+            heatmap: heatmapUpload?.url ?? null,
           },
         });
 
@@ -172,7 +189,7 @@ export default function Index() {
         setIsChatLoading(false);
       }
     },
-    [aiModel, result, chatMessages, imagePreview, lang]
+    [aiModel, result, chatMessages, imageFile, lang]
   );
 
   const selectedAiName = AI_MODELS.find((m) => m.id === aiModel)?.name ?? "";

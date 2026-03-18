@@ -62,8 +62,8 @@ export async function chatWithPrediction(payload: {
     warningFlags?: string[];
   };
   images?: {
-    original?: string | null; // data URL
-    heatmap?: string | null;  // data URL
+    original?: string | null; // Blob URL
+    heatmap?: string | null;  // Blob URL
   };
   history?: { role: "user" | "assistant"; content: string }[];
 }): Promise<{ answer: string }> {

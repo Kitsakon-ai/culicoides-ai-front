@@ -7,40 +7,33 @@ type Msg = {
   content: string;
 };
 
-type TopKItem = {
-  name: string;
-  probability: number;
-};
-
-type PredictionPayload = {
-  species: string;
-  genus: string;
-  confidence: number;
-  confidenceLevel: "high" | "low" | "ood";
-  topK?: TopKItem[];
-  explanation?: string;
-};
-
 type ChatBody = {
   provider: "openai" | "gemini";
   ai_model: string;
   mode?: "explanation" | "vision";
   message: string;
-  prediction: PredictionPayload | null;
+  prediction: {
+    species: string;
+    genus: string;
+    confidence: number;
+    confidenceLevel: "high" | "low" | "ood";
+    topK?: { name: string; probability: number }[];
+    explanation?: string;
+  } | null;
   xai?: {
     highlightedRegions?: string[];
     confidenceDrivers?: string[];
     warningFlags?: string[];
   };
   images?: {
-    original?: string | null; // data URL
-    heatmap?: string | null;  // data URL
+    original?: string | null;
+    heatmap?: string | null;
   };
   history?: Msg[];
 };
 
-function isDataUrl(value?: string | null) {
-  return typeof value === "string" && value.startsWith("data:image/");
+function isHttpUrl(value?: string | null) {
+  return typeof value === "string" && /^https?:\/\//i.test(value);
 }
 
 function buildExplanationPrompt(body: ChatBody) {
@@ -127,13 +120,19 @@ ${body.message}
 `;
 }
 
-function dataUrlToGeminiInlineData(dataUrl: string) {
-  const match = dataUrl.match(/^data:(.*?);base64,(.*)$/);
-  if (!match) return null;
+async function urlToGeminiInlineData(url: string) {
+  const res = await fetch(url);
+  if (!res.ok) {
+    throw new Error(`โหลดรูปจาก URL ไม่สำเร็จ: ${url}`);
+  }
+
+  const contentType = res.headers.get("content-type") || "image/jpeg";
+  const arrayBuffer = await res.arrayBuffer();
+  const base64 = Buffer.from(arrayBuffer).toString("base64");
 
   return {
-    mimeType: match[1],
-    data: match[2],
+    mimeType: contentType,
+    data: base64,
   };
 }
 
@@ -166,7 +165,7 @@ async function askOpenAI(body: ChatBody, prompt: string) {
     },
   ];
 
-  if (isDataUrl(body.images?.original)) {
+  if (isHttpUrl(body.images?.original)) {
     content.push({
       type: "input_image",
       image_url: body.images!.original,
@@ -174,7 +173,7 @@ async function askOpenAI(body: ChatBody, prompt: string) {
     });
   }
 
-  if (isDataUrl(body.images?.heatmap)) {
+  if (isHttpUrl(body.images?.heatmap)) {
     content.push({
       type: "input_image",
       image_url: body.images!.heatmap,
@@ -215,22 +214,18 @@ async function askGemini(body: ChatBody, prompt: string) {
 
   const parts: any[] = [{ text: prompt }];
 
-  if (isDataUrl(body.images?.original)) {
-    const original = dataUrlToGeminiInlineData(body.images!.original!);
-    if (original) {
-      parts.push({
-        inline_data: original,
-      });
-    }
+  if (isHttpUrl(body.images?.original)) {
+    const original = await urlToGeminiInlineData(body.images!.original!);
+    parts.push({
+      inline_data: original,
+    });
   }
 
-  if (isDataUrl(body.images?.heatmap)) {
-    const heatmap = dataUrlToGeminiInlineData(body.images!.heatmap!);
-    if (heatmap) {
-      parts.push({
-        inline_data: heatmap,
-      });
-    }
+  if (isHttpUrl(body.images?.heatmap)) {
+    const heatmap = await urlToGeminiInlineData(body.images!.heatmap!);
+    parts.push({
+      inline_data: heatmap,
+    });
   }
 
   const res = await fetch(
