@@ -1,4 +1,4 @@
-import type { PredictionResult, HistoryItem } from "@/lib/types";
+import type { PredictionResult, HistoryItem, ChatMessage } from "@/lib/types";
 
 const API_URL = (process.env.NEXT_PUBLIC_API_URL ?? "").replace(/\/+$/, "");
 
@@ -51,10 +51,10 @@ export async function predictImage(
   return res.json();
 }
 
-export async function chatWithPrediction(payload: {
+export type ChatWithPredictionParams = {
   message: string;
   ai_model: string;
-  prediction: any;
+  prediction?: PredictionResult | null;
   mode?: "explanation" | "vision";
   xai?: {
     highlightedRegions?: string[];
@@ -62,11 +62,22 @@ export async function chatWithPrediction(payload: {
     warningFlags?: string[];
   };
   images?: {
-    original?: string | null; // Blob URL
-    heatmap?: string | null;  // Blob URL
+    original?: string | null;
+    heatmap?: string | null;
   };
-  history?: { role: "user" | "assistant"; content: string }[];
-}): Promise<{ answer: string }> {
+  history?: ChatMessage[];
+};
+
+export type ChatWithPredictionResponse = {
+  answer: string;
+  fallback?: boolean;
+  providerUsed?: string;
+  modelUsed?: string;
+};
+
+export async function chatWithPrediction(
+  payload: ChatWithPredictionParams
+): Promise<ChatWithPredictionResponse> {
   const provider = payload.ai_model.startsWith("gpt") ? "openai" : "gemini";
 
   const res = await fetch("/api/chat", {
@@ -90,7 +101,9 @@ export async function chatWithPrediction(payload: {
 }
 
 export async function getHistory(limit = 20): Promise<{ items: HistoryItem[] }> {
-  const res = await fetch(`/api/predictions?limit=${limit}`);
+  const res = await fetch(`/api/predictions?limit=${limit}`, {
+    cache: "no-store",
+  });
 
   if (!res.ok) {
     throw new Error("Failed to fetch history");
@@ -99,13 +112,16 @@ export async function getHistory(limit = 20): Promise<{ items: HistoryItem[] }> 
   return res.json();
 }
 
-export async function uploadImage(file: File): Promise<{ url: string; pathname: string }> {
+export async function uploadImage(
+  file: File
+): Promise<{ url: string; pathname: string }> {
   const formData = new FormData();
   formData.append("file", file);
 
   const res = await fetch("/api/upload", {
     method: "POST",
     body: formData,
+    cache: "no-store",
   });
 
   if (!res.ok) {
@@ -129,3 +145,7 @@ export function dataUrlToFile(dataUrl: string, filename: string): File {
 
   return new File([bytes], filename, { type: mime });
 }
+console.log("FASTAPI_URL =", process.env.FASTAPI_URL)
+console.log("NEXT_PUBLIC_API_URL =", process.env.NEXT_PUBLIC_API_URL)
+
+export { API_URL };

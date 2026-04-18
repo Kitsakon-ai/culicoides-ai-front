@@ -19,17 +19,10 @@ export type PredictionResult = {
   confidence: number;
   topK: { name: string; probability: number }[];
   confidenceLevel: "high" | "low" | "ood";
-  taxonomy: {
-    kingdom: string;
-    phylum: string;
-    class: string;
-    order: string;
-    family: string;
-    genus: string;
-    species: string;
-  };
+  taxonomy: Record<string, string>;
   gradcam?: string;
   explanation?: string;
+  modelUsed?: string | null;
 };
 
 export type ChatMessage = {
@@ -76,14 +69,14 @@ export const ML_MODELS: MLModel[] = [
   },
 ];
 
-export const AI_MODELS = [
+export const AI_MODELS: AIModel[] = [
   { id: "gpt-4.1-mini", name: "GPT-4.1 Mini", provider: "openai" },
   { id: "gemini-2.5-flash", name: "Gemini 2.5 Flash", provider: "gemini" },
 ];
 
 export const SPECIES_TO_GENUS: Record<string, string> = {
-  guttifer: "Phlebotomus",
-  peregrinus: "Sergentomyia",
+  guttifer: "Culicoides",
+  peregrinus: "Culicoides",
 };
 
 export function buildTaxonomy(species: string): Record<string, string> {
@@ -94,8 +87,7 @@ export function buildTaxonomy(species: string): Record<string, string> {
     Class: "Insecta",
     Order: "Diptera",
     Suborder: "Nematocera",
-    Family: "Psychodidae",
-    Subfamily: "Phlebotominae",
+    Family: "Ceratopogonidae",
     Genus: SPECIES_TO_GENUS[species] ?? "Unknown",
     Species: species,
   };

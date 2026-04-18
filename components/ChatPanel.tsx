@@ -6,29 +6,37 @@ import type { ChatMessage } from "@/lib/types";
 
 interface ChatPanelProps {
   messages: ChatMessage[];
-  onSend: (message: string) => void;
+  onSend: (message: string) => void | Promise<void>;
   onClear: () => void;
   labels: Record<string, string>;
   isLoading: boolean;
 }
 
-export function ChatPanel({ messages, onSend, onClear, labels, isLoading }: ChatPanelProps) {
+export function ChatPanel({
+  messages,
+  onSend,
+  onClear,
+  labels,
+  isLoading,
+}: ChatPanelProps) {
   const [input, setInput] = useState("");
 
-  const handleSend = () => {
-    if (!input.trim() || isLoading) return;
-    onSend(input.trim());
+  const handleSend = async () => {
+    const text = input.trim();
+    if (!text || isLoading) return;
+
     setInput("");
+    await onSend(text);
   };
 
   return (
     <div className="flex flex-col">
-      <div className="flex items-center justify-between mb-3">
+      <div className="mb-3 flex items-center justify-between">
         <p className="label-caps">{labels.chat}</p>
         {messages.length > 0 && (
           <button
             onClick={onClear}
-            className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+            className="flex items-center gap-1 text-[11px] text-muted-foreground transition-colors hover:text-foreground"
           >
             <Trash2 className="h-3 w-3" />
             {labels.clearChat}
@@ -36,17 +44,19 @@ export function ChatPanel({ messages, onSend, onClear, labels, isLoading }: Chat
         )}
       </div>
 
-      {/* Messages */}
       <div className="card-surface mb-3 max-h-80 min-h-[160px] overflow-y-auto p-4 space-y-3">
         {messages.length === 0 && (
-          <p className="text-xs text-muted-foreground text-center py-8">
+          <p className="py-8 text-center text-xs text-muted-foreground">
             {labels.chatPlaceholder}
           </p>
         )}
+
         {messages.map((msg, i) => (
           <div
             key={i}
-            className={`flex gap-2 ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+            className={`flex gap-2 ${
+              msg.role === "user" ? "justify-end" : "justify-start"
+            }`}
           >
             <div
               className={`max-w-[85%] rounded-lg px-3 py-2 text-sm leading-relaxed ${
@@ -59,28 +69,35 @@ export function ChatPanel({ messages, onSend, onClear, labels, isLoading }: Chat
             </div>
           </div>
         ))}
+
         {isLoading && (
           <div className="flex gap-2 justify-start">
             <div className="bg-secondary rounded-lg px-3 py-2">
-              <span className="text-xs text-muted-foreground animate-pulse">...</span>
+              <span className="text-xs text-muted-foreground animate-pulse">
+                ...
+              </span>
             </div>
           </div>
         )}
       </div>
 
-      {/* Input */}
       <div className="flex gap-2">
         <input
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && handleSend()}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              void handleSend();
+            }
+          }}
           placeholder={labels.chatPlaceholder}
           className="flex-1 rounded-md border bg-background px-3 py-2 text-sm outline-none transition-colors placeholder:text-muted-foreground focus:ring-1 focus:ring-accent"
           disabled={isLoading}
         />
         <button
-          onClick={handleSend}
+          onClick={() => void handleSend()}
           disabled={!input.trim() || isLoading}
           className="flex h-9 w-9 items-center justify-center rounded-md bg-accent text-accent-foreground transition-colors hover:bg-accent/90 disabled:opacity-40"
         >
