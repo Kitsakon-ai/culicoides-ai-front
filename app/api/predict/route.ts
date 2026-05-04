@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
-const API_URL = (process.env.FASTAPI_URL || "https://kitsakon-culiciodes.hf.space/").replace(/\/+$/, "");
+const API_URL = (process.env.FASTAPI_URL || "http://127.0.0.1:3001").replace(/\/+$/, "");
 // || "https://kitsakon-culiciodes.hf.space/"
 
 export async function POST(req: Request) {

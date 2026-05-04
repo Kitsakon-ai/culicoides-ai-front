@@ -210,9 +210,8 @@ export default function Index() {
   return (
     <div className="flex h-screen overflow-hidden bg-background">
       <aside
-        className={`hidden md:flex md:flex-col flex-shrink-0 border-r bg-background transition-all duration-200 ${
-          sidebarOpen ? "w-60" : "w-0 overflow-hidden"
-        }`}
+        className={`hidden md:flex md:flex-col flex-shrink-0 border-r bg-background transition-all duration-200 ${sidebarOpen ? "w-60" : "w-0 overflow-hidden"
+          }`}
       >
         <div className="flex h-14 items-center gap-2.5 border-b px-4">
           <div className="flex h-7 w-7 items-center justify-center rounded-md bg-accent text-accent-foreground">
@@ -230,9 +229,8 @@ export default function Index() {
             <button
               key={item.id}
               onClick={() => setActiveNav(item.id)}
-              className={`next-nav-item w-full ${
-                activeNav === item.id ? "next-nav-item-active" : ""
-              }`}
+              className={`next-nav-item w-full ${activeNav === item.id ? "next-nav-item-active" : ""
+                }`}
             >
               <item.icon className="h-4 w-4" />
               {item.label}
@@ -277,11 +275,12 @@ export default function Index() {
 
           <div className="flex items-center gap-3">
             <LanguageToggle lang={lang} onChange={setLang} />
+
             {imagePreview && !result && (
               <button
                 onClick={handleRunInference}
                 disabled={isAnalyzing}
-                className="flex items-center gap-2 rounded-md bg-accent px-4 py-1.5 text-sm font-medium text-accent-foreground transition-colors hover:bg-accent/90 disabled:opacity-60"
+                className="hidden md:flex items-center gap-2 rounded-md bg-accent px-4 py-1.5 text-sm font-medium text-accent-foreground transition-colors hover:bg-accent/90 disabled:opacity-60"
               >
                 {isAnalyzing ? (
                   <>
@@ -298,17 +297,53 @@ export default function Index() {
             )}
           </div>
         </header>
+        <div className="flex md:hidden border-b overflow-x-auto">
+          <div className="md:hidden border-b px-4 py-3 space-y-3 bg-background">
+            <div>
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                {t.selectMl}
+              </label>
+              <select
+                value={mlModel}
+                onChange={(e) => setMlModel(e.target.value)}
+                className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+              >
+                {ML_MODELS.map((model) => (
+                  <option key={model.id} value={model.id}>
+                    {model.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                {t.selectAi}
+              </label>
+              <select
+                value={aiModel}
+                onChange={(e) => setAiModel(e.target.value)}
+                className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+              >
+                {AI_MODELS.map((model) => (
+                  <option key={model.id} value={model.id}>
+                    {model.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </div>
 
         <div className="flex md:hidden border-b overflow-x-auto">
           {navItems.map((item) => (
             <button
               key={item.id}
               onClick={() => setActiveNav(item.id)}
-              className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-medium transition-colors border-b-2 whitespace-nowrap ${
-                activeNav === item.id
-                  ? "border-accent text-foreground"
-                  : "border-transparent text-muted-foreground"
-              }`}
+              className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-medium transition-colors border-b-2 whitespace-nowrap ${activeNav === item.id
+                ? "border-accent text-foreground"
+                : "border-transparent text-muted-foreground"
+                }`}
             >
               <item.icon className="h-3.5 w-3.5" />
               {item.label}
