@@ -3,6 +3,25 @@
 import { useState } from "react";
 import { Send, Trash2 } from "lucide-react";
 import type { ChatMessage } from "@/lib/types";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import type { Components } from "react-markdown";
+
+const assistantMd: Components = {
+  p: ({ children }) => <p className="mb-1.5 last:mb-0 text-sm leading-relaxed">{children}</p>,
+  ul: ({ children }) => <ul className="mb-1.5 last:mb-0 space-y-1 pl-0">{children}</ul>,
+  li: ({ children }) => (
+    <li className="flex items-start gap-1.5 text-sm leading-relaxed">
+      <span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-current opacity-50" />
+      <span className="flex-1">{children}</span>
+    </li>
+  ),
+  strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+  em: ({ children }) => <em className="italic opacity-80">{children}</em>,
+  h1: ({ children }) => <p className="text-sm font-semibold mt-3 mb-1.5 first:mt-0 border-l-2 border-current pl-2 opacity-90">{children}</p>,
+  h2: ({ children }) => <p className="text-sm font-semibold mt-3 mb-1.5 first:mt-0 border-l-2 border-current pl-2 opacity-90">{children}</p>,
+  h3: ({ children }) => <p className="text-xs font-semibold mt-2 mb-1 first:mt-0 opacity-70">{children}</p>,
+};
 
 interface ChatPanelProps {
   messages: ChatMessage[];
@@ -59,13 +78,19 @@ export function ChatPanel({
             }`}
           >
             <div
-              className={`max-w-[85%] rounded-lg px-3 py-2 text-sm leading-relaxed ${
+              className={`max-w-[85%] rounded-lg px-3 py-2 ${
                 msg.role === "user"
-                  ? "bg-accent text-accent-foreground"
+                  ? "bg-accent text-accent-foreground text-sm leading-relaxed"
                   : "bg-secondary text-secondary-foreground"
               }`}
             >
-              {msg.content}
+              {msg.role === "user" ? (
+                msg.content
+              ) : (
+                <ReactMarkdown remarkPlugins={[remarkGfm]} components={assistantMd}>
+                  {msg.content}
+                </ReactMarkdown>
+              )}
             </div>
           </div>
         ))}

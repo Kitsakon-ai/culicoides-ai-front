@@ -23,6 +23,7 @@ export type PredictionResult = {
   gradcam?: string;
   explanation?: string;
   modelUsed?: string | null;
+  provinces?: string[];
 };
 
 export type ChatMessage = {
@@ -69,9 +70,27 @@ export const ML_MODELS: MLModel[] = [
   },
 ];
 
+export const AI_PROVIDER_ORDER = ["openai", "gemini", "claude"] as const;
+export const AI_PROVIDER_LABEL: Record<string, string> = {
+  openai: "OpenAI",
+  gemini: "Google Gemini",
+  claude: "Anthropic Claude",
+};
+
 export const AI_MODELS: AIModel[] = [
-  { id: "gpt-4.1-mini", name: "GPT-4.1 Mini", provider: "openai" },
-  { id: "gemini-2.5-flash", name: "Gemini 2.5 Flash", provider: "gemini" },
+  // OpenAI
+  { id: "gpt-4.1",      name: "GPT-4.1",       provider: "openai" },
+  { id: "gpt-4.1-mini", name: "GPT-4.1 Mini",   provider: "openai" },
+  { id: "gpt-4o",       name: "GPT-4o",         provider: "openai" },
+  { id: "gpt-4o-mini",  name: "GPT-4o Mini",    provider: "openai" },
+  // Google Gemini
+  { id: "gemini-2.5-pro",   name: "Gemini 2.5 Pro",   provider: "gemini" },
+  { id: "gemini-2.5-flash", name: "Gemini 2.5 Flash",  provider: "gemini" },
+  { id: "gemini-2.0-flash", name: "Gemini 2.0 Flash",  provider: "gemini" },
+  // Anthropic Claude
+  { id: "claude-opus-4-8",   name: "Claude Opus 4.8",   provider: "claude" },
+  { id: "claude-sonnet-4-6", name: "Claude Sonnet 4.6", provider: "claude" },
+  { id: "claude-haiku-4-5",  name: "Claude Haiku 4.5",  provider: "claude" },
 ];
 
 export const SPECIES_TO_GENUS: Record<string, string> = {

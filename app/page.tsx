@@ -14,6 +14,7 @@ import {
   Cpu,
   Sparkles,
   GitBranch,
+  Map,
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 
@@ -21,10 +22,21 @@ import { TEXT, type Lang } from "@/lib/i18n";
 import {
   ML_MODELS,
   AI_MODELS,
+  AI_PROVIDER_ORDER,
+  AI_PROVIDER_LABEL,
   type PredictionResult,
   type ChatMessage,
   type HistoryItem,
 } from "@/lib/types";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 import { LanguageToggle } from "@/components/LanguageToggle";
 import { ModelSelector } from "@/components/ModelSelector";
@@ -36,6 +48,7 @@ import { ExplanationBlock } from "@/components/ExplanationBlock";
 import { ChatPanel } from "@/components/ChatPanel";
 import { InspectorPanel } from "@/components/InspectorPanel";
 import { HistoryPanel } from "@/components/HistoryPanel";
+import { ThailandMap } from "@/components/ThailandMap";
 
 import {
   predictImage,
@@ -43,9 +56,10 @@ import {
   getHistory,
   uploadImage,
   dataUrlToFile,
+  getProvinces,
 } from "@/lib/api";
 
-type NavSection = "upload" | "results" | "chat" | "inspector";
+type NavSection = "upload" | "results" | "chat" | "inspector" | "map";
 
 export default function Index() {
   const [lang, setLang] = useState<Lang>("th");
@@ -62,6 +76,8 @@ export default function Index() {
   const [activeNav, setActiveNav] = useState<NavSection>("upload");
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [historyItems, setHistoryItems] = useState<HistoryItem[]>([]);
+  const [provinces, setProvinces] = useState<string[]>([]);
+  const [isMapLoading, setIsMapLoading] = useState(false);
 
   const handleImageSelect = useCallback((file: File, preview: string) => {
     setImageFile(file);
@@ -75,6 +91,7 @@ export default function Index() {
     setImagePreview(null);
     setResult(null);
     setChatMessages([]);
+    setProvinces([]);
     setActiveNav("upload");
   }, []);
 
@@ -125,6 +142,13 @@ export default function Index() {
 
       const history = await getHistory(20);
       setHistoryItems(history.items);
+
+      // โหลดแผนที่การกระจายตัวใน background
+      setIsMapLoading(true);
+      getProvinces(data.species, aiModel)
+        .then((res) => setProvinces(res.provinces))
+        .catch(() => setProvinces([]))
+        .finally(() => setIsMapLoading(false));
     } catch (error: any) {
       console.error(error);
       alert(error.message || "เกิดข้อผิดพลาด");
@@ -198,6 +222,7 @@ export default function Index() {
     { id: "upload", label: lang === "th" ? "อัปโหลด" : "Upload", icon: Upload },
     { id: "results", label: lang === "th" ? "ผลลัพธ์" : "Results", icon: BarChart3 },
     { id: "chat", label: lang === "th" ? "แชท AI" : "AI Chat", icon: MessageSquare },
+    { id: "map", label: lang === "th" ? "แผนที่" : "Map", icon: Map },
     { id: "inspector", label: "Inspector", icon: Settings2 },
   ];
 
@@ -320,17 +345,29 @@ export default function Index() {
               <label className="mb-1 block text-xs font-medium text-muted-foreground">
                 {t.selectAi}
               </label>
-              <select
-                value={aiModel}
-                onChange={(e) => setAiModel(e.target.value)}
-                className="w-full rounded-md border bg-background px-3 py-2 text-sm"
-              >
-                {AI_MODELS.map((model) => (
-                  <option key={model.id} value={model.id}>
-                    {model.name}
-                  </option>
-                ))}
-              </select>
+              <Select value={aiModel} onValueChange={setAiModel}>
+                <SelectTrigger className="w-full text-sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {AI_PROVIDER_ORDER.map((provider) => {
+                    const items = AI_MODELS.filter((m) => m.provider === provider);
+                    if (!items.length) return null;
+                    return (
+                      <SelectGroup key={provider}>
+                        <SelectLabel className="text-[10px] uppercase tracking-wider text-muted-foreground/70">
+                          {AI_PROVIDER_LABEL[provider]}
+                        </SelectLabel>
+                        {items.map((m) => (
+                          <SelectItem key={m.id} value={m.id} className="text-sm">
+                            {m.name}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
             </div>
           </div>
         </div>
@@ -371,22 +408,68 @@ export default function Index() {
                     <p className="text-sm text-muted-foreground">{t.subtitle}</p>
                   </div>
 
-                  {imagePreview && result ? (
-                    <GradCamOverlay
-                      imageSrc={(result?.gradcam ?? imagePreview)!}
-                      visible={true}
-                      label="Grad-CAM"
-                      onClear={handleClearImage}
-                    />
-                  ) : (
-                    <ImageUpload
-                      label={t.upload}
-                      hint={t.uploadHint}
-                      onImageSelect={handleImageSelect}
-                      onClear={handleClearImage}
-                      preview={imagePreview}
-                    />
-                  )}
+                  <div className={`grid gap-4 ${isAnalyzing ? "md:grid-cols-2" : "grid-cols-1"}`}>
+                    {imagePreview && result ? (
+                      <GradCamOverlay
+                        imageSrc={(result?.gradcam ?? imagePreview)!}
+                        visible={true}
+                        label="Grad-CAM"
+                        onClear={handleClearImage}
+                      />
+                    ) : (
+                      <ImageUpload
+                        label={t.upload}
+                        hint={t.uploadHint}
+                        onImageSelect={handleImageSelect}
+                        onClear={handleClearImage}
+                        preview={imagePreview}
+                      />
+                    )}
+
+                    <AnimatePresence>
+                      {isAnalyzing && (
+                        <motion.div
+                          initial={{ opacity: 0, x: 16 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          exit={{ opacity: 0, x: 16 }}
+                          transition={{ duration: 0.2 }}
+                          className="flex flex-col justify-center rounded-xl border border-accent/40 bg-accent/5 p-5 space-y-4"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent/10">
+                              <Loader2 className="h-5 w-5 animate-spin text-accent" />
+                            </div>
+                            <div>
+                              <p className="text-sm font-semibold text-foreground">
+                                {lang === "th" ? "กำลังวิเคราะห์ภาพ" : "Analyzing image"}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {lang === "th" ? "กรุณารอสักครู่..." : "Please wait..."}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="space-y-2">
+                            {[
+                              lang === "th" ? "ส่งภาพไปยัง ML model" : "Sending to ML model",
+                              lang === "th" ? "สร้าง Grad-CAM heatmap" : "Generating Grad-CAM",
+                              lang === "th" ? "ขอคำอธิบายจาก AI" : "Requesting AI explanation",
+                            ].map((step, i) => (
+                              <motion.div
+                                key={i}
+                                initial={{ opacity: 0, x: -6 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                transition={{ delay: i * 0.12 }}
+                                className="flex items-center gap-2.5 rounded-lg bg-background/60 px-3 py-2 text-xs text-muted-foreground"
+                              >
+                                <div className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent/60" />
+                                {step}
+                              </motion.div>
+                            ))}
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
 
                   {imagePreview && !result && (
                     <div className="flex justify-end md:hidden">
@@ -465,7 +548,7 @@ export default function Index() {
                         )}
                       </div>
 
-                      <div className="grid gap-6 lg:grid-cols-2">
+                      <div className="grid gap-6 lg:grid-cols-1">
                         <div>
                           <div className="flex items-center gap-2 mb-3">
                             <GitBranch className="h-4 w-4 text-muted-foreground" />
@@ -538,6 +621,46 @@ export default function Index() {
                 </motion.div>
               )}
 
+              {activeNav === "map" && (
+                <motion.div
+                  key="map"
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                  transition={{ duration: 0.2 }}
+                  className="space-y-6"
+                >
+                  <div className="space-y-1">
+                    <h1 className="text-xl font-semibold text-foreground flex items-center gap-2">
+                      <Map className="h-5 w-5 text-accent" />
+                      {lang === "th" ? "แผนที่การกระจายตัว" : "Distribution Map"}
+                    </h1>
+                    <p className="text-sm text-muted-foreground">
+                      {lang === "th"
+                        ? "จังหวัดในไทยที่คาดว่าพบสายพันธุ์นี้ จากการวิเคราะห์ด้วย AI"
+                        : "Thai provinces where this species is likely found, based on AI analysis"}
+                    </p>
+                  </div>
+
+                  {result ? (
+                    <ThailandMap
+                      highlightedProvinces={provinces}
+                      species={result.species}
+                      isLoading={isMapLoading}
+                    />
+                  ) : (
+                    <div className="card-surface flex flex-col items-center justify-center py-20">
+                      <Map className="h-8 w-8 text-muted-foreground/30 mb-3" />
+                      <p className="text-sm text-muted-foreground">
+                        {lang === "th"
+                          ? "ยังไม่มีผลการวิเคราะห์ กรุณาอัปโหลดภาพก่อน"
+                          : "No results yet. Please upload an image first."}
+                      </p>
+                    </div>
+                  )}
+                </motion.div>
+              )}
+
               {activeNav === "inspector" && (
                 <motion.div
                   key="inspector"
@@ -572,6 +695,7 @@ export default function Index() {
           </div>
         </main>
       </div>
+
     </div>
   );
 }

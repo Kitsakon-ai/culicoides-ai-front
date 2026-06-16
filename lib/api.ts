@@ -78,7 +78,11 @@ export type ChatWithPredictionResponse = {
 export async function chatWithPrediction(
   payload: ChatWithPredictionParams
 ): Promise<ChatWithPredictionResponse> {
-  const provider = payload.ai_model.startsWith("gpt") ? "openai" : "gemini";
+  const provider = payload.ai_model.startsWith("gpt")
+    ? "openai"
+    : payload.ai_model.startsWith("claude")
+    ? "claude"
+    : "gemini";
 
   const res = await fetch("/api/chat", {
     method: "POST",
@@ -128,6 +132,21 @@ export async function uploadImage(
     throw new Error(await getErrorMessage(res, "Upload failed"));
   }
 
+  return res.json();
+}
+
+export async function getProvinces(
+  species: string,
+  aiModel: string
+): Promise<{ provinces: string[] }> {
+  const res = await fetch("/api/provinces", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ species, ai_model: aiModel }),
+    cache: "no-store",
+  });
+
+  if (!res.ok) return { provinces: [] };
   return res.json();
 }
 
