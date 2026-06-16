@@ -13,6 +13,16 @@ export interface AIModel {
   provider: string;
 }
 
+export type ModelComparisonEntry = {
+  modelId: string;
+  model: string;
+  species: string;
+  confidence: number;
+  confidenceLevel: "high" | "low" | "ood";
+  topK: { name: string; probability: number }[];
+  isWinner: boolean;
+};
+
 export type PredictionResult = {
   species: string;
   genus: string;
@@ -24,6 +34,8 @@ export type PredictionResult = {
   explanation?: string;
   modelUsed?: string | null;
   provinces?: string[];
+  modelComparison?: ModelComparisonEntry[];
+  bestModel?: string;
 };
 
 export type ChatMessage = {
@@ -67,6 +79,14 @@ export const ML_MODELS: MLModel[] = [
     accuracy: 92.5,
     latency: "~140ms",
     description: "Dense connections, ดีสำหรับ feature reuse",
+  },
+  {
+    id: "ensemble",
+    name: "Ensemble (เปรียบเทียบ 3 โมเดล)",
+    type: "Ensemble",
+    accuracy: 95.0,
+    latency: "~400ms",
+    description: "รัน EfficientNet + ResNet + DenseNet พร้อมกัน แล้วเลือกผลที่ดีที่สุด",
   },
 ];
 

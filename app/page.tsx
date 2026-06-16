@@ -49,6 +49,7 @@ import { ChatPanel } from "@/components/ChatPanel";
 import { InspectorPanel } from "@/components/InspectorPanel";
 import { HistoryPanel } from "@/components/HistoryPanel";
 import { ThailandMap } from "@/components/ThailandMap";
+import { EnsembleChart } from "@/components/EnsembleChart";
 
 import {
   predictImage,
@@ -449,11 +450,20 @@ export default function Index() {
                             </div>
                           </div>
                           <div className="space-y-2">
-                            {[
-                              lang === "th" ? "ส่งภาพไปยัง ML model" : "Sending to ML model",
-                              lang === "th" ? "สร้าง Grad-CAM heatmap" : "Generating Grad-CAM",
-                              lang === "th" ? "ขอคำอธิบายจาก AI" : "Requesting AI explanation",
-                            ].map((step, i) => (
+                            {(mlModel === "ensemble"
+                              ? [
+                                  lang === "th" ? "รัน EfficientNet-B0" : "Running EfficientNet-B0",
+                                  lang === "th" ? "รัน ResNet-50" : "Running ResNet-50",
+                                  lang === "th" ? "รัน DenseNet-121" : "Running DenseNet-121",
+                                  lang === "th" ? "เปรียบเทียบ & เลือกผลดีที่สุด" : "Comparing & selecting best",
+                                  lang === "th" ? "ขอคำอธิบายจาก AI" : "Requesting AI explanation",
+                                ]
+                              : [
+                                  lang === "th" ? "ส่งภาพไปยัง ML model" : "Sending to ML model",
+                                  lang === "th" ? "สร้าง Grad-CAM heatmap" : "Generating Grad-CAM",
+                                  lang === "th" ? "ขอคำอธิบายจาก AI" : "Requesting AI explanation",
+                                ]
+                            ).map((step, i) => (
                               <motion.div
                                 key={i}
                                 initial={{ opacity: 0, x: -6 }}
@@ -547,6 +557,15 @@ export default function Index() {
                           </div>
                         )}
                       </div>
+
+                      {result.modelComparison && result.modelComparison.length > 0 && (
+                        <div>
+                          <EnsembleChart
+                            comparison={result.modelComparison}
+                            bestModel={result.bestModel ?? ""}
+                          />
+                        </div>
+                      )}
 
                       <div className="grid gap-6 lg:grid-cols-1">
                         <div>
