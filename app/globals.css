@@ -163,7 +163,7 @@
 
 @layer components {
   .card-surface {
-    @apply rounded-lg border bg-card;
+    @apply rounded-xl border border-border/60 bg-gradient-to-br from-card via-card to-accent/[0.04] shadow-md shadow-black/5;
   }
 
   .workbench-input {
@@ -202,5 +202,27 @@
   }
   100% {
     box-shadow: 0 0 0 6px hsl(212 100% 48% / 0);
+  }
+}
+
+@media print {
+  @page {
+    margin: 14mm;
+  }
+
+  html,
+  body {
+    background: #fff !important;
+  }
+
+  .card-surface {
+    box-shadow: none !important;
+    border: 1px solid #d1d5db !important;
+    break-inside: avoid;
+  }
+
+  * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
   }
 }

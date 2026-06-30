@@ -1,11 +1,34 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ComposableMap, Geographies, Geography } from "react-simple-maps";
 import { MapPin } from "lucide-react";
 
 const GEO_URL =
   "https://raw.githubusercontent.com/apisit/thailand.json/master/thailand.json";
+
+// react-simple-maps only accepts TopoJSON or a features array — not a raw
+// GeoJSON FeatureCollection — so we fetch and unwrap `.features` ourselves.
+function useGeoFeatures(url: string) {
+  const [features, setFeatures] = useState<any[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(url)
+      .then((res) => res.json())
+      .then((data) => {
+        if (!cancelled) setFeatures(data?.features ?? []);
+      })
+      .catch(() => {
+        if (!cancelled) setFeatures([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [url]);
+
+  return features;
+}
 
 // GeoJSON uses English names — map Thai province names to English
 const TH_TO_EN: Record<string, string> = {
@@ -101,6 +124,7 @@ const EN_TO_TH: Record<string, string> = Object.fromEntries(
 
 export function ThailandMap({ highlightedProvinces, species, isLoading }: Props) {
   const [tooltip, setTooltip] = useState<{ name: string; x: number; y: number } | null>(null);
+  const geoFeatures = useGeoFeatures(GEO_URL);
   // Convert Thai names → English to match GeoJSON "name" property
   const highlighted = new Set(
     highlightedProvinces.map((th) => TH_TO_EN[th] ?? th)
@@ -116,7 +140,7 @@ export function ThailandMap({ highlightedProvinces, species, isLoading }: Props)
   }
 
   return (
-    <div className="card-surface space-y-4">
+    <div className="card-surface space-y-4 p-4">
       <div className="flex items-start justify-between">
         <div>
           <p className="text-sm font-medium text-foreground">
@@ -147,7 +171,7 @@ export function ThailandMap({ highlightedProvinces, species, isLoading }: Props)
           height={650}
           style={{ width: "100%", height: "auto" }}
         >
-          <Geographies geography={GEO_URL}>
+          <Geographies geography={geoFeatures}>
             {({ geographies }) =>
               geographies.map((geo) => {
                 const nameEn: string = geo.properties.name ?? "";

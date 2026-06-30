@@ -11,10 +11,12 @@ import {
   Bug,
   ChevronRight,
   Microscope,
-  Cpu,
-  Sparkles,
-  GitBranch,
   Map,
+  Layers,
+  Printer,
+  CheckCircle,
+  AlertTriangle,
+  XCircle,
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 
@@ -42,6 +44,7 @@ import { LanguageToggle } from "@/components/LanguageToggle";
 import { ModelSelector } from "@/components/ModelSelector";
 import { ImageUpload } from "@/components/ImageUpload";
 import { GradCamOverlay } from "@/components/GradCamOverlay";
+import { GradCamCompare } from "@/components/GradCamCompare";
 import { ResultsPanel } from "@/components/ResultsPanel";
 import { TaxonomyTree } from "@/components/TaxonomyTree";
 import { ExplanationBlock } from "@/components/ExplanationBlock";
@@ -50,6 +53,7 @@ import { InspectorPanel } from "@/components/InspectorPanel";
 import { HistoryPanel } from "@/components/HistoryPanel";
 import { ThailandMap } from "@/components/ThailandMap";
 import { EnsembleChart } from "@/components/EnsembleChart";
+import { ModelLatencyTable } from "@/components/ModelLatencyTable";
 
 import {
   predictImage,
@@ -60,7 +64,7 @@ import {
   getProvinces,
 } from "@/lib/api";
 
-type NavSection = "upload" | "results" | "chat" | "inspector" | "map";
+type NavSection = "upload" | "results" | "chat" | "inspector";
 
 export default function Index() {
   const [lang, setLang] = useState<Lang>("th");
@@ -158,6 +162,74 @@ export default function Index() {
     }
   }, [imageFile, mlModel, aiModel]);
 
+  const [isExplaining, setIsExplaining] = useState(false);
+
+  // เปลี่ยนโมเดล AI แล้วให้สร้างคำอธิบายใหม่อัตโนมัติ โดยผลทำนาย/ภาพ/taxonomy เดิมไม่เปลี่ยน
+  useEffect(() => {
+    if (!result || !imageFile) return;
+
+    let cancelled = false;
+
+    const regenerateExplanation = async () => {
+      try {
+        setIsExplaining(true);
+
+        const originalUpload = await uploadImage(imageFile);
+        const heatmapUpload = result.gradcam
+          ? await uploadImage(dataUrlToFile(result.gradcam, "gradcam.png"))
+          : null;
+
+        const explainRes = await chatWithPrediction({
+          message:
+            "ช่วยอธิบายผล Explainable AI โดยเน้นลักษณะของปีกจากภาพต้นฉบับร่วมกับ heatmap ตอบ 3-5 บรรทัด",
+          ai_model: aiModel,
+          mode: "explanation",
+          prediction: result,
+          xai: {
+            highlightedRegions: ["กลางปีก", "ขอบปีก", "ลำตัว"],
+            confidenceDrivers: [
+              "Grad-CAM เน้นบริเวณปีกเป็นหลัก",
+              "ลักษณะบริเวณปีกสอดคล้องกับชนิดที่ทำนาย",
+            ],
+            warningFlags:
+              result.confidenceLevel === "low" || result.confidenceLevel === "ood"
+                ? ["ผลยังเป็นเบื้องต้น"]
+                : [],
+          },
+          images: {
+            original: originalUpload.url,
+            heatmap: heatmapUpload?.url ?? null,
+          },
+        });
+
+        if (!cancelled) {
+          setResult((prev) =>
+            prev ? { ...prev, explanation: explainRes.answer } : prev
+          );
+
+          // ข้อความแรกในแชต (คำอธิบายที่ทักมาอัตโนมัติ) อัปเดตตาม — ส่วนบทสนทนาถัดจากนั้นคงเดิม
+          setChatMessages((prev) => {
+            if (prev.length === 0 || prev[0].role !== "assistant") return prev;
+            const updated = [...prev];
+            updated[0] = { ...updated[0], content: explainRes.answer };
+            return updated;
+          });
+        }
+      } catch (error) {
+        console.error(error);
+      } finally {
+        if (!cancelled) setIsExplaining(false);
+      }
+    };
+
+    regenerateExplanation();
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [aiModel]);
+
   const handleChatSend = useCallback(
     async (message: string) => {
       const nextUserMessage = { role: "user" as const, content: message };
@@ -219,11 +291,34 @@ export default function Index() {
 
   const selectedAiName = AI_MODELS.find((m) => m.id === aiModel)?.name ?? "";
 
+  const heroStatusByLevel = {
+    high: {
+      icon: CheckCircle,
+      ring: "stroke-success",
+      text: "text-success",
+      badge: "border-success/30 bg-success/10",
+      label: t.confidenceHigh,
+    },
+    low: {
+      icon: AlertTriangle,
+      ring: "stroke-warning",
+      text: "text-warning",
+      badge: "border-warning/30 bg-warning/10",
+      label: t.confidenceLow,
+    },
+    ood: {
+      icon: XCircle,
+      ring: "stroke-destructive",
+      text: "text-destructive",
+      badge: "border-destructive/30 bg-destructive/10",
+      label: t.notSandfly,
+    },
+  } as const;
+
   const navItems: { id: NavSection; label: string; icon: React.ElementType }[] = [
     { id: "upload", label: lang === "th" ? "อัปโหลด" : "Upload", icon: Upload },
     { id: "results", label: lang === "th" ? "ผลลัพธ์" : "Results", icon: BarChart3 },
     { id: "chat", label: lang === "th" ? "แชท AI" : "AI Chat", icon: MessageSquare },
-    { id: "map", label: lang === "th" ? "แผนที่" : "Map", icon: Map },
     { id: "inspector", label: "Inspector", icon: Settings2 },
   ];
 
@@ -234,9 +329,9 @@ export default function Index() {
   }, []);
 
   return (
-    <div className="flex h-screen overflow-hidden bg-background">
+    <div className="flex h-screen overflow-hidden bg-background print:h-auto print:overflow-visible">
       <aside
-        className={`hidden md:flex md:flex-col flex-shrink-0 border-r bg-background transition-all duration-200 ${sidebarOpen ? "w-60" : "w-0 overflow-hidden"
+        className={`hidden md:flex md:flex-col flex-shrink-0 border-r bg-background transition-all duration-200 print:hidden ${sidebarOpen ? "w-60" : "w-0 overflow-hidden"
           }`}
       >
         <div className="flex h-14 items-center gap-2.5 border-b px-4">
@@ -281,7 +376,7 @@ export default function Index() {
       </aside>
 
       <div className="flex flex-1 flex-col overflow-hidden">
-        <header className="flex h-14 flex-shrink-0 items-center justify-between border-b px-4 md:px-6">
+        <header className="flex h-14 flex-shrink-0 items-center justify-between px-4 md:px-6 print:hidden">
           <div className="flex items-center gap-2">
             <button
               className="md:hidden flex h-8 w-8 items-center justify-center rounded-md border text-muted-foreground hover:text-foreground"
@@ -323,7 +418,7 @@ export default function Index() {
             )}
           </div>
         </header>
-        <div className="flex md:hidden border-b overflow-x-auto">
+        <div className="flex md:hidden border-b overflow-x-auto print:hidden">
           <div className="md:hidden border-b px-4 py-3 space-y-3 bg-background">
             <div>
               <label className="mb-1 block text-xs font-medium text-muted-foreground">
@@ -373,7 +468,7 @@ export default function Index() {
           </div>
         </div>
 
-        <div className="flex md:hidden border-b overflow-x-auto">
+        <div className="flex md:hidden border-b overflow-x-auto print:hidden">
           {navItems.map((item) => (
             <button
               key={item.id}
@@ -389,8 +484,8 @@ export default function Index() {
           ))}
         </div>
 
-        <main className="flex-1 overflow-y-auto">
-          <div className="mx-auto max-w-4xl p-4 md:p-8">
+        <main className="flex-1 overflow-y-auto print:overflow-visible">
+          <div className="mx-auto max-w-7xl p-4 md:p-8 print:max-w-none print:p-0">
             <AnimatePresence mode="wait">
               {activeNav === "upload" && (
                 <motion.div
@@ -414,7 +509,7 @@ export default function Index() {
                       <GradCamOverlay
                         imageSrc={(result?.gradcam ?? imagePreview)!}
                         visible={true}
-                        label="Grad-CAM"
+                        label="Grad-CAM++"
                         onClear={handleClearImage}
                       />
                     ) : (
@@ -502,6 +597,8 @@ export default function Index() {
                       </button>
                     </div>
                   )}
+
+                  <ModelLatencyTable currentAiModel={aiModel} />
                 </motion.div>
               )}
 
@@ -514,49 +611,149 @@ export default function Index() {
                   transition={{ duration: 0.2 }}
                   className="space-y-8"
                 >
-                  <div className="space-y-1">
-                    <h1 className="text-xl font-semibold text-foreground flex items-center gap-2">
-                      <BarChart3 className="h-5 w-5 text-accent" />
-                      {lang === "th" ? "ผลการวิเคราะห์" : "Analysis Results"}
-                    </h1>
-                    <p className="text-sm text-muted-foreground">
-                      {lang === "th"
-                        ? "ผลลัพธ์จากการวิเคราะห์ภาพด้วย ML model"
-                        : "Results from ML model image analysis"}
-                    </p>
+                  {/* Print-only report header */}
+                  {result && (
+                    <div className="hidden print:block print:mb-6">
+                      <div className="flex items-center gap-2 text-lg font-bold">
+                        <Bug className="h-5 w-5" />
+                        Culicoides AI — รายงานผลการวิเคราะห์
+                      </div>
+                      <p className="mt-1 text-xs text-gray-500">
+                        สร้างเมื่อ {new Date().toLocaleString("th-TH")} · โมเดล ML: {mlModel} · โมเดล AI: {selectedAiName}
+                      </p>
+                      <hr className="mt-3 border-gray-300" />
+                    </div>
+                  )}
+
+                  <div className="flex items-start justify-between gap-3 print:hidden">
+                    <div className="space-y-1">
+                      <h1 className="text-xl font-semibold text-foreground flex items-center gap-2">
+                        <BarChart3 className="h-5 w-5 text-accent" />
+                        {lang === "th" ? "ผลการวิเคราะห์" : "Analysis Results"}
+                      </h1>
+                      <p className="text-sm text-muted-foreground">
+                        {lang === "th"
+                          ? "ผลลัพธ์จากการวิเคราะห์ภาพด้วย ML model"
+                          : "Results from ML model image analysis"}
+                      </p>
+                    </div>
+
+                    {result && (
+                      <button
+                        onClick={() => window.print()}
+                        className="flex shrink-0 items-center gap-1.5 rounded-md border bg-background px-3 py-2 text-xs font-medium text-foreground transition-colors hover:bg-secondary"
+                      >
+                        <Printer className="h-3.5 w-3.5" />
+                        {lang === "th" ? "พิมพ์ / บันทึก PDF" : "Print / Save as PDF"}
+                      </button>
+                    )}
                   </div>
 
                   {result ? (
                     <>
-                      <div className="grid gap-6 lg:grid-cols-2">
+                      {(() => {
+                        const status = heroStatusByLevel[result.confidenceLevel];
+                        const StatusIcon = status.icon;
+                        const circumference = 2 * Math.PI * 42;
+
+                        return (
+                          <motion.div
+                            initial={{ opacity: 0, y: 8 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.3, ease: [0.2, 0, 0, 1] }}
+                            className="relative overflow-hidden rounded-xl border bg-card p-6"
+                          >
+                            <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-accent/10 via-transparent to-transparent" />
+
+                            <div className="relative flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
+                              <div className="space-y-2.5">
+                                <span
+                                  className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium ${status.badge} ${status.text}`}
+                                >
+                                  <StatusIcon className="h-3.5 w-3.5" />
+                                  {status.label}
+                                </span>
+                                <h2 className="text-2xl font-semibold italic text-foreground sm:text-3xl">
+                                  Culicoides {result.species}
+                                </h2>
+                                <p className="text-sm text-muted-foreground">
+                                  {t.genus}:{" "}
+                                  <span className="font-medium not-italic text-foreground">
+                                    {result.genus}
+                                  </span>
+                                  {result.modelUsed && (
+                                    <>
+                                      {" "}
+                                      ·{" "}
+                                      <span className="font-mono text-xs">{result.modelUsed}</span>
+                                    </>
+                                  )}
+                                </p>
+                              </div>
+
+                              <div className="relative flex h-28 w-28 shrink-0 items-center justify-center self-center">
+                                <svg viewBox="0 0 100 100" className="h-28 w-28 -rotate-90">
+                                  <circle
+                                    cx="50"
+                                    cy="50"
+                                    r="42"
+                                    strokeWidth="8"
+                                    className="fill-none stroke-secondary"
+                                  />
+                                  <motion.circle
+                                    cx="50"
+                                    cy="50"
+                                    r="42"
+                                    strokeWidth="8"
+                                    strokeLinecap="round"
+                                    className={`fill-none ${status.ring}`}
+                                    style={{ strokeDasharray: circumference }}
+                                    initial={{ strokeDashoffset: circumference }}
+                                    animate={{
+                                      strokeDashoffset:
+                                        circumference * (1 - result.confidence),
+                                    }}
+                                    transition={{ duration: 0.8, ease: [0.2, 0, 0, 1] }}
+                                  />
+                                </svg>
+                                <div className="absolute flex flex-col items-center">
+                                  <span className="tabular text-xl font-bold text-foreground">
+                                    {(result.confidence * 100).toFixed(0)}%
+                                  </span>
+                                  <span className="text-[9px] uppercase tracking-wide text-muted-foreground">
+                                    {t.confidence}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          </motion.div>
+                        );
+                      })()}
+
+                      <ResultsPanel
+                        result={result}
+                        labels={t as unknown as Record<string, string>}
+                      />
+
+                      {imagePreview && (
                         <div className="space-y-4">
                           <div className="flex items-center gap-2 mb-2">
-                            <Cpu className="h-4 w-4 text-muted-foreground" />
+                            <div className="flex h-7 w-7 items-center justify-center rounded-full bg-accent/10">
+                              <Layers className="h-3.5 w-3.5 text-accent" />
+                            </div>
                             <span className="text-sm font-medium text-foreground">
-                              {lang === "th" ? "ผลการจำแนก" : "Classification"}
+                              {lang === "th"
+                                ? "เปรียบเทียบภาพ — Grad-CAM++"
+                                : "Image Comparison — Grad-CAM++"}
                             </span>
                           </div>
-                          <ResultsPanel
-                            result={result}
-                            labels={t as unknown as Record<string, string>}
+                          <GradCamCompare
+                            original={imagePreview}
+                            heatmap={result?.heatmap}
+                            gradcam={result?.gradcam}
                           />
                         </div>
-
-                        {imagePreview && (
-                          <div className="space-y-4">
-                            <div className="flex items-center gap-2 mb-2">
-                              <Microscope className="h-4 w-4 text-muted-foreground" />
-                              <span className="text-sm font-medium text-foreground">Grad-CAM</span>
-                            </div>
-                            <GradCamOverlay
-                              imageSrc={result?.gradcam ?? imagePreview ?? ""}
-                              visible={true}
-                              label="Grad-CAM"
-                              onClear={handleClearImage}
-                            />
-                          </div>
-                        )}
-                      </div>
+                      )}
 
                       {result.modelComparison && result.modelComparison.length > 0 && (
                         <div>
@@ -568,42 +765,52 @@ export default function Index() {
                       )}
 
                       <div className="grid gap-6 lg:grid-cols-1">
-                        <div>
-                          <div className="flex items-center gap-2 mb-3">
-                            <GitBranch className="h-4 w-4 text-muted-foreground" />
-                            <span className="text-sm font-medium text-foreground">
-                              {t.taxonomy}
-                            </span>
-                          </div>
-                          <TaxonomyTree taxonomy={result.taxonomy} label="" />
-                        </div>
+                        <TaxonomyTree taxonomy={result.taxonomy} label={t.taxonomy} />
+
+                        <ExplanationBlock
+                          text={
+                            result?.explanation ||
+                            (lang === "th" ? "ยังไม่มีคำอธิบายจาก AI" : "No AI explanation yet.")
+                          }
+                          label=""
+                          aiModel={selectedAiName}
+                          isLoading={isExplaining}
+                        />
 
                         <div>
                           <div className="flex items-center gap-2 mb-3">
-                            <Sparkles className="h-4 w-4 text-muted-foreground" />
+                            <div className="flex h-7 w-7 items-center justify-center rounded-full bg-accent/10">
+                              <Map className="h-3.5 w-3.5 text-accent" />
+                            </div>
                             <span className="text-sm font-medium text-foreground">
-                              {t.explanation}
+                              {lang === "th" ? "แผนที่การกระจายตัว" : "Distribution Map"}
                             </span>
                           </div>
-                          <ExplanationBlock
-                            text={
-                              result?.explanation ||
-                              (lang === "th" ? "ยังไม่มีคำอธิบายจาก AI" : "No AI explanation yet.")
-                            }
-                            label=""
-                            aiModel={selectedAiName}
+                          <ThailandMap
+                            highlightedProvinces={provinces}
+                            species={result.species}
+                            isLoading={isMapLoading}
                           />
                         </div>
                       </div>
                     </>
                   ) : (
-                    <div className="card-surface flex flex-col items-center justify-center py-20">
-                      <BarChart3 className="h-8 w-8 text-muted-foreground/30 mb-3" />
-                      <p className="text-sm text-muted-foreground">
+                    <div className="card-surface flex min-h-[58vh] flex-col items-center justify-center gap-3">
+                      <div className="flex h-16 w-16 items-center justify-center rounded-full bg-accent/10">
+                        <BarChart3 className="h-8 w-8 text-accent/60" />
+                      </div>
+                      <p className="max-w-xs text-center text-sm text-muted-foreground">
                         {lang === "th"
                           ? "ยังไม่มีผลการวิเคราะห์ กรุณาอัปโหลดภาพก่อน"
                           : "No results yet. Please upload an image first."}
                       </p>
+                      <button
+                        onClick={() => setActiveNav("upload")}
+                        className="mt-1 flex items-center gap-1.5 rounded-md bg-accent px-4 py-2 text-xs font-medium text-accent-foreground transition-colors hover:bg-accent/90"
+                      >
+                        <Upload className="h-3.5 w-3.5" />
+                        {lang === "th" ? "ไปอัปโหลดภาพ" : "Go to Upload"}
+                      </button>
                     </div>
                   )}
                 </motion.div>
@@ -637,46 +844,6 @@ export default function Index() {
                     labels={t as unknown as Record<string, string>}
                     isLoading={isChatLoading}
                   />
-                </motion.div>
-              )}
-
-              {activeNav === "map" && (
-                <motion.div
-                  key="map"
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -8 }}
-                  transition={{ duration: 0.2 }}
-                  className="space-y-6"
-                >
-                  <div className="space-y-1">
-                    <h1 className="text-xl font-semibold text-foreground flex items-center gap-2">
-                      <Map className="h-5 w-5 text-accent" />
-                      {lang === "th" ? "แผนที่การกระจายตัว" : "Distribution Map"}
-                    </h1>
-                    <p className="text-sm text-muted-foreground">
-                      {lang === "th"
-                        ? "จังหวัดในไทยที่คาดว่าพบสายพันธุ์นี้ จากการวิเคราะห์ด้วย AI"
-                        : "Thai provinces where this species is likely found, based on AI analysis"}
-                    </p>
-                  </div>
-
-                  {result ? (
-                    <ThailandMap
-                      highlightedProvinces={provinces}
-                      species={result.species}
-                      isLoading={isMapLoading}
-                    />
-                  ) : (
-                    <div className="card-surface flex flex-col items-center justify-center py-20">
-                      <Map className="h-8 w-8 text-muted-foreground/30 mb-3" />
-                      <p className="text-sm text-muted-foreground">
-                        {lang === "th"
-                          ? "ยังไม่มีผลการวิเคราะห์ กรุณาอัปโหลดภาพก่อน"
-                          : "No results yet. Please upload an image first."}
-                      </p>
-                    </div>
-                  )}
                 </motion.div>
               )}
 

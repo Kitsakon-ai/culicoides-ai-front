@@ -1,7 +1,7 @@
 "use client";
 
-import { motion } from "framer-motion";
-import { Sparkles } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Sparkles, Loader2 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { Components } from "react-markdown";
@@ -10,6 +10,7 @@ interface ExplanationBlockProps {
   text: string;
   label: string;
   aiModel: string;
+  isLoading?: boolean;
 }
 
 const mdComponents: Components = {
@@ -65,7 +66,7 @@ const mdComponents: Components = {
   ),
 };
 
-export function ExplanationBlock({ text, label, aiModel }: ExplanationBlockProps) {
+export function ExplanationBlock({ text, label, aiModel, isLoading }: ExplanationBlockProps) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 8 }}
@@ -76,9 +77,24 @@ export function ExplanationBlock({ text, label, aiModel }: ExplanationBlockProps
 
       <div className="card-surface overflow-hidden">
         {/* Header */}
-        <div className="flex items-center gap-2 border-b px-4 py-2.5">
+        <div className="flex items-center gap-2 px-4 py-2.5">
           <Sparkles className="h-3.5 w-3.5 shrink-0 text-accent" />
           <span className="text-xs font-medium text-foreground">AI Explanation</span>
+
+          <AnimatePresence>
+            {isLoading && (
+              <motion.span
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="flex items-center gap-1 text-[10px] text-accent"
+              >
+                <Loader2 className="h-3 w-3 animate-spin" />
+                กำลังสร้างคำอธิบายใหม่...
+              </motion.span>
+            )}
+          </AnimatePresence>
+
           {aiModel && (
             <span className="ml-auto rounded border border-accent/30 bg-accent/5 px-1.5 py-0.5 font-mono text-[10px] text-accent">
               {aiModel}
@@ -87,7 +103,11 @@ export function ExplanationBlock({ text, label, aiModel }: ExplanationBlockProps
         </div>
 
         {/* Markdown body */}
-        <div className="px-4 py-4">
+        <div
+          className={`px-4 py-4 transition-opacity duration-200 ${
+            isLoading ? "opacity-50" : "opacity-100"
+          }`}
+        >
           <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>
             {text}
           </ReactMarkdown>

@@ -1,201 +1,271 @@
 "use client";
 
+import { useState } from "react";
+import { GitBranch } from "lucide-react";
+
 interface TaxonomyTreeProps {
   taxonomy: Record<string, string>;
   label: string;
 }
 
-const ALL_SPECIES = ["guttifer", "mahasarakhamense", "oxystoma", "peregrinus"];
+// Sibling genera within family Ceratopogonidae, shown for context alongside
+// the predicted genus — mirrors a standard genus→species cladogram layout.
+const FAMILY_GENERA = ["Culicoides", "Forcipomyia", "Dasyhelea", "Leptoconops", "Bezzia"];
 
-const RANK_ORDER = ["kingdom", "phylum", "class", "order", "family", "genus"];
-const RANK_LABEL: Record<string, string> = {
-  kingdom: "Kingdom",
-  phylum: "Phylum",
-  class: "Class",
-  order: "Order",
-  family: "Family",
-  genus: "Genus",
+// Representative species per genus — only Culicoides reflects the model's
+// actual candidate list; the rest are illustrative real species for context.
+const GENUS_SPECIES: Record<string, string[]> = {
+  culicoides: ["guttifer", "mahasarakhamense", "oxystoma", "peregrinus"],
+  forcipomyia: ["taiwana", "fuliginosa", "eques"],
+  dasyhelea: ["obscura", "sonorensis", "bisanensis"],
+  leptoconops: ["kerteszi", "torrens", "becquaerti"],
+  bezzia: ["annulipes", "setulosa", "nobilis"],
 };
 
 const ACCENT = "#3b82f6";
-const GRAY   = "#94a3b8";
-const BLUE   = "#3b82f6";
+const GRAY = "#94a3b8";
+const INK = "#1e293b";
 
-// Each staircase step
-const STEP_X = 44;
-const STEP_Y = 52;
-const START_X = 44;
-const START_Y = 44;
+// ── Genus column (left) ──
+const GENUS_PANEL_X = 16;
+const GENUS_PANEL_W = 160;
+const GENUS_ROOT_X = 32;
+const GENUS_TIP_X = 130;
+const GENUS_START_Y = 78;
+const GENUS_STEP_Y = 36;
 
-// Species tips (rightmost x)
-const TIP_X = 630;
+// ── Species column (right) ──
+const SPECIES_CLADE_X = 430;
+const SPECIES_TIP_X = 680;
+const SPECIES_START_Y = 78;
+const SPECIES_STEP_Y = 42;
 
-// Species step
-const SP_STEP_Y = 52;
-
-const W = 820;
+const W = 800;
+const COLLAPSED_W = GENUS_TIP_X + 160;
 
 export function TaxonomyTree({ taxonomy, label }: TaxonomyTreeProps) {
-  const predicted = (taxonomy.species ?? "").toLowerCase().trim();
-  const ranks = RANK_ORDER.filter((r) => taxonomy[r]);
+  const predictedSpecies = (taxonomy.species ?? "").toLowerCase().trim();
+  const predictedGenus = (taxonomy.genus ?? "Culicoides").toLowerCase().trim();
 
-  const nodes = ranks.map((rank, i) => ({
-    rank,
-    rankLabel: RANK_LABEL[rank] ?? rank,
-    value: taxonomy[rank],
-    x: START_X + i * STEP_X,
-    y: START_Y + i * STEP_Y,
-    isGenus: rank === "genus",
+  const [expandedGenus, setExpandedGenus] = useState<string | null>(predictedGenus);
+
+  const genera = FAMILY_GENERA.map((g, i) => ({
+    name: g,
+    key: g.toLowerCase(),
+    isPredicted: g.toLowerCase() === predictedGenus,
+    y: GENUS_START_Y + i * GENUS_STEP_Y,
   }));
 
-  const genus = nodes.at(-1)!;
-  const spYs = ALL_SPECIES.map((_, i) => genus.y + i * SP_STEP_Y);
-  const cladeX = genus.x + 28;
-  const svgH = (spYs.at(-1) ?? genus.y) + 42;
+  const activeGenus = genera.find((g) => g.key === expandedGenus) ?? null;
+  const activeSpecies = activeGenus ? GENUS_SPECIES[activeGenus.key] ?? [] : [];
+
+  const spYs = activeSpecies.map((_, i) => SPECIES_START_Y + i * SPECIES_STEP_Y);
+  const genusFirstY = genera[0].y;
+  const genusLastY = genera.at(-1)!.y;
+  const isExpanded = activeGenus !== null && activeSpecies.length > 0;
+  const svgW = isExpanded ? W : COLLAPSED_W;
+  const svgH = isExpanded ? Math.max(genusLastY, spYs.at(-1) ?? 0) + 46 : genusLastY + 46;
 
   return (
-    <div className="card-surface p-4 overflow-x-auto">
-      {label && <p className="label-caps mb-3">{label}</p>}
-      <svg
-        viewBox={`0 0 ${W} ${svgH}`}
-        className="w-full min-w-120"
-        style={{ height: svgH }}
-        aria-label="Taxonomy cladogram"
-      >
-        {/*
-         * Staircase backbone: H-first L-shape (RIGHT then DOWN).
-         * Each horizontal step is STEP_X wide — same length for every rank.
-         * No long lines extending to the right; labels sit at each L-corner.
-         */}
-        {nodes.slice(0, -1).map((node, i) => {
-          const next = nodes[i + 1];
-          return (
-            <path
-              key={`bb-${i}`}
-              d={`M ${node.x} ${node.y} H ${next.x} V ${next.y}`}
-              fill="none"
-              stroke={BLUE}
-              strokeWidth={2}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          );
-        })}
+    <div className="card-surface overflow-hidden">
+      {label && (
+        <div className="flex items-center gap-2 px-4 py-2.5">
+          <div className="flex h-6 w-6 items-center justify-center rounded-full bg-accent/10">
+            <GitBranch className="h-3.5 w-3.5 text-accent" />
+          </div>
+          <span className="text-xs font-medium text-foreground">{label}</span>
+        </div>
+      )}
 
-        {/* Short horizontal from Genus node → clade bar */}
-        <line
-          x1={genus.x} y1={genus.y}
-          x2={cladeX}   y2={genus.y}
-          stroke={BLUE} strokeWidth={2}
-        />
+      <div className="overflow-x-auto p-4">
+        <svg
+          viewBox={`0 0 ${svgW} ${svgH}`}
+          className={isExpanded ? "w-full min-w-150" : "w-full min-w-75"}
+          style={{ height: svgH }}
+          aria-label="Taxonomy cladogram"
+        >
+          {/* Genus column background panel */}
+          <rect
+            x={GENUS_PANEL_X}
+            y={0}
+            width={GENUS_PANEL_W}
+            height={svgH}
+            fill="#f1f5f9"
+            rx={6}
+          />
 
-        {/* Vertical clade bar for species */}
-        <line
-          x1={cladeX} y1={spYs[0]}
-          x2={cladeX} y2={spYs.at(-1)!}
-          stroke={GRAY} strokeWidth={2}
-        />
+          {/* Column headers */}
+          <text
+            x={GENUS_PANEL_X + 14}
+            y={26}
+            fontSize={15}
+            fontWeight="700"
+            fill={INK}
+            fontFamily="system-ui, -apple-system, sans-serif"
+          >
+            Genus
+          </text>
+          {isExpanded && activeGenus && (
+            <>
+              <text
+                x={SPECIES_CLADE_X - 130}
+                y={26}
+                fontSize={15}
+                fontWeight="700"
+                fill={INK}
+                fontFamily="system-ui, -apple-system, sans-serif"
+              >
+                Species
+              </text>
+              <text
+                x={SPECIES_CLADE_X - 130}
+                y={40}
+                fontSize={9.5}
+                fontStyle="italic"
+                fill={GRAY}
+                fontFamily="system-ui, -apple-system, sans-serif"
+              >
+                {activeGenus.name} specific epithet
+              </text>
+            </>
+          )}
 
-        {/* ── Species branches ── */}
-        {ALL_SPECIES.map((sp, i) => {
-          const isHit = sp === predicted;
-          const col  = isHit ? ACCENT : GRAY;
-          const sy   = spYs[i];
-          return (
-            <g key={sp}>
-              <line
-                x1={cladeX} y1={sy}
-                x2={TIP_X}  y2={sy}
-                stroke={col} strokeWidth={isHit ? 2.5 : 1.5}
-              />
-              {isHit && (
-                <circle cx={TIP_X} cy={sy} r={11}
-                  fill="none" stroke={ACCENT} strokeWidth={1.5} opacity={0.25}
+          {/* Family root → genus clade bar */}
+          <line
+            x1={GENUS_ROOT_X}
+            y1={genusFirstY}
+            x2={GENUS_ROOT_X}
+            y2={genusLastY}
+            stroke={GRAY}
+            strokeWidth={2}
+          />
+
+          {/* ── Genus branches — every genus is clickable to reveal its species ── */}
+          {genera.map((g) => {
+            const isOpen = g.key === expandedGenus;
+            const col = g.isPredicted ? ACCENT : isOpen ? ACCENT : GRAY;
+            return (
+              <g
+                key={g.name}
+                onClick={() => setExpandedGenus((prev) => (prev === g.key ? null : g.key))}
+                style={{ cursor: "pointer" }}
+              >
+                <line
+                  x1={GENUS_ROOT_X}
+                  y1={g.y}
+                  x2={GENUS_TIP_X}
+                  y2={g.y}
+                  stroke={col}
+                  strokeWidth={isOpen || g.isPredicted ? 2.5 : 1.5}
                 />
-              )}
-              <circle cx={TIP_X} cy={sy} r={isHit ? 6 : 4} fill={col} />
-              {isHit && (
+                <circle cx={GENUS_TIP_X} cy={g.y} r={isOpen || g.isPredicted ? 5.5 : 4} fill={col} />
                 <text
-                  x={TIP_X + 12} y={sy - 10}
-                  fontSize={8.5} fill={ACCENT} opacity={0.9}
+                  x={GENUS_TIP_X + 10}
+                  y={g.y + 4}
+                  fontSize={10}
+                  fill={col}
+                  fontFamily="system-ui, -apple-system, sans-serif"
+                  style={{ userSelect: "none" }}
+                >
+                  {isOpen ? "▾" : "▸"}
+                </text>
+                <text
+                  x={GENUS_TIP_X + 22}
+                  y={g.y + 4}
+                  fontSize={g.isPredicted ? 12.5 : 11}
+                  fontStyle="italic"
+                  fontWeight={g.isPredicted || isOpen ? "700" : "400"}
+                  fill={col === GRAY ? INK : col}
                   fontFamily="system-ui, -apple-system, sans-serif"
                 >
-                  ▶ Predicted
+                  {g.name}
                 </text>
-              )}
-              <text
-                x={TIP_X + 12} y={sy + 5}
-                fontSize={isHit ? 12 : 11}
-                fill={col}
-                fontWeight={isHit ? "700" : "400"}
-                fontStyle="italic"
-                fontFamily="system-ui, -apple-system, sans-serif"
-              >
-                C. {sp}
-              </text>
-            </g>
-          );
-        })}
+              </g>
+            );
+          })}
 
-        {/* "Species" rank label above first species */}
-        <text
-          x={TIP_X + 12} y={spYs[0] - 18}
-          fontSize={9} fill={GRAY}
-          fontFamily="system-ui, -apple-system, sans-serif"
-        >
-          Species
-        </text>
+          {isExpanded && activeGenus && (
+            <>
+              {/* Dashed connector: expanded genus → species clade */}
+              <path
+                d={`M ${GENUS_TIP_X + 8} ${activeGenus.y}
+                    C ${(GENUS_TIP_X + SPECIES_CLADE_X) / 2} ${activeGenus.y},
+                      ${(GENUS_TIP_X + SPECIES_CLADE_X) / 2} ${(spYs[0] + spYs.at(-1)!) / 2},
+                      ${SPECIES_CLADE_X} ${(spYs[0] + spYs.at(-1)!) / 2}`}
+                fill="none"
+                stroke={ACCENT}
+                strokeWidth={1.5}
+                strokeDasharray="4 3"
+                opacity={0.6}
+              />
 
-        {/* ── Rank node circles ── */}
-        {nodes.map((node) => (
-          <circle key={`dot-${node.rank}`}
-            cx={node.x} cy={node.y} r={4} fill={BLUE}
-          />
-        ))}
+              {/* Species clade bar */}
+              <line
+                x1={SPECIES_CLADE_X}
+                y1={spYs[0]}
+                x2={SPECIES_CLADE_X}
+                y2={spYs.at(-1)!}
+                stroke={GRAY}
+                strokeWidth={2}
+              />
 
-        {/*
-         * Labels for Kingdom → Family: placed just right of each L-corner
-         * (at next.x + 6, node.y ± offset) so they never cross the vertical segment.
-         */}
-        {nodes.slice(0, -1).map((node, i) => {
-          const next = nodes[i + 1];
-          const lx = next.x + 6;
-          return (
-            <g key={`lbl-${node.rank}`}>
-              <text
-                x={lx} y={node.y - 8}
-                fontSize={9} fill={GRAY}
-                fontFamily="system-ui, -apple-system, sans-serif"
-              >
-                {node.rankLabel}
-              </text>
-              <text
-                x={lx} y={node.y + 9}
-                fontSize={11} fill="#1e293b" fontWeight="500"
-                fontFamily="system-ui, -apple-system, sans-serif"
-              >
-                {node.value}
-              </text>
-            </g>
-          );
-        })}
-
-        {/* Genus label: same style, placed just right of the clade bar */}
-        <text
-          x={cladeX + 6} y={genus.y - 8}
-          fontSize={9} fill={GRAY}
-          fontFamily="system-ui, -apple-system, sans-serif"
-        >
-          {genus.rankLabel}
-        </text>
-        <text
-          x={cladeX + 6} y={genus.y + 9}
-          fontSize={11} fill="#1e293b" fontWeight="500" fontStyle="italic"
-          fontFamily="system-ui, -apple-system, sans-serif"
-        >
-          {genus.value}
-        </text>
-      </svg>
+              {/* ── Species branches ── */}
+              {activeSpecies.map((sp, i) => {
+                const isHit = activeGenus.isPredicted && sp === predictedSpecies;
+                const col = isHit ? ACCENT : GRAY;
+                const sy = spYs[i];
+                return (
+                  <g key={sp}>
+                    <line
+                      x1={SPECIES_CLADE_X}
+                      y1={sy}
+                      x2={SPECIES_TIP_X}
+                      y2={sy}
+                      stroke={col}
+                      strokeWidth={isHit ? 2.5 : 1.5}
+                    />
+                    {isHit && (
+                      <circle
+                        cx={SPECIES_TIP_X}
+                        cy={sy}
+                        r={11}
+                        fill="none"
+                        stroke={ACCENT}
+                        strokeWidth={1.5}
+                        opacity={0.25}
+                      />
+                    )}
+                    <circle cx={SPECIES_TIP_X} cy={sy} r={isHit ? 6 : 4} fill={col} />
+                    {isHit && (
+                      <text
+                        x={SPECIES_TIP_X + 12}
+                        y={sy - 10}
+                        fontSize={8.5}
+                        fill={ACCENT}
+                        opacity={0.9}
+                        fontFamily="system-ui, -apple-system, sans-serif"
+                      >
+                        ▶ Predicted
+                      </text>
+                    )}
+                    <text
+                      x={SPECIES_TIP_X + 12}
+                      y={sy + 5}
+                      fontSize={isHit ? 12 : 11}
+                      fill={col}
+                      fontWeight={isHit ? "700" : "400"}
+                      fontStyle="italic"
+                      fontFamily="system-ui, -apple-system, sans-serif"
+                    >
+                      {activeGenus.name[0]}. {sp}
+                    </text>
+                  </g>
+                );
+              })}
+            </>
+          )}
+        </svg>
+      </div>
     </div>
   );
 }

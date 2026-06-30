@@ -31,6 +31,7 @@ export type PredictionResult = {
   confidenceLevel: "high" | "low" | "ood";
   taxonomy: Record<string, string>;
   gradcam?: string;
+  heatmap?: string;
   explanation?: string;
   modelUsed?: string | null;
   provinces?: string[];

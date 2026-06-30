@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { Send, Trash2 } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Send, Trash2, Bot, User, Sparkles } from "lucide-react";
 import type { ChatMessage } from "@/lib/types";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -39,6 +39,11 @@ export function ChatPanel({
   isLoading,
 }: ChatPanelProps) {
   const [input, setInput] = useState("");
+  const bottomRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+  }, [messages, isLoading]);
 
   const handleSend = async () => {
     const text = input.trim();
@@ -49,13 +54,17 @@ export function ChatPanel({
   };
 
   return (
-    <div className="flex flex-col">
-      <div className="mb-3 flex items-center justify-between">
-        <p className="label-caps">{labels.chat}</p>
+    <div className="card-surface flex h-[70vh] min-h-[420px] flex-col overflow-hidden">
+      {/* Header */}
+      <div className="flex shrink-0 items-center gap-2 px-4 py-3">
+        <div className="flex h-7 w-7 items-center justify-center rounded-full bg-accent/15">
+          <Sparkles className="h-3.5 w-3.5 text-accent" />
+        </div>
+        <p className="text-sm font-medium text-foreground">{labels.chat}</p>
         {messages.length > 0 && (
           <button
             onClick={onClear}
-            className="flex items-center gap-1 text-[11px] text-muted-foreground transition-colors hover:text-foreground"
+            className="ml-auto flex items-center gap-1 text-[11px] text-muted-foreground transition-colors hover:text-foreground"
           >
             <Trash2 className="h-3 w-3" />
             {labels.clearChat}
@@ -63,25 +72,36 @@ export function ChatPanel({
         )}
       </div>
 
-      <div className="card-surface mb-3 max-h-80 min-h-[160px] overflow-y-auto p-4 space-y-3">
+      {/* Messages — scrolls internally, input stays pinned below */}
+      <div className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
         {messages.length === 0 && (
-          <p className="py-8 text-center text-xs text-muted-foreground">
-            {labels.chatPlaceholder}
-          </p>
+          <div className="flex h-full flex-col items-center justify-center gap-2 text-center">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-secondary">
+              <Bot className="h-5 w-5 text-muted-foreground" />
+            </div>
+            <p className="max-w-xs text-xs text-muted-foreground">
+              {labels.chatPlaceholder}
+            </p>
+          </div>
         )}
 
         {messages.map((msg, i) => (
           <div
             key={i}
-            className={`flex gap-2 ${
+            className={`flex items-end gap-2 ${
               msg.role === "user" ? "justify-end" : "justify-start"
             }`}
           >
+            {msg.role === "assistant" && (
+              <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-accent/15">
+                <Bot className="h-3.5 w-3.5 text-accent" />
+              </div>
+            )}
             <div
-              className={`max-w-[85%] rounded-lg px-3 py-2 ${
+              className={`max-w-[80%] rounded-2xl px-3.5 py-2.5 ${
                 msg.role === "user"
-                  ? "bg-accent text-accent-foreground text-sm leading-relaxed"
-                  : "bg-secondary text-secondary-foreground"
+                  ? "rounded-br-sm bg-accent text-accent-foreground text-sm leading-relaxed"
+                  : "rounded-bl-sm bg-secondary text-secondary-foreground"
               }`}
             >
               {msg.role === "user" ? (
@@ -92,21 +112,32 @@ export function ChatPanel({
                 </ReactMarkdown>
               )}
             </div>
+            {msg.role === "user" && (
+              <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-accent text-accent-foreground">
+                <User className="h-3.5 w-3.5" />
+              </div>
+            )}
           </div>
         ))}
 
         {isLoading && (
-          <div className="flex gap-2 justify-start">
-            <div className="bg-secondary rounded-lg px-3 py-2">
-              <span className="text-xs text-muted-foreground animate-pulse">
-                ...
-              </span>
+          <div className="flex items-end gap-2 justify-start">
+            <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-accent/15">
+              <Bot className="h-3.5 w-3.5 text-accent" />
+            </div>
+            <div className="flex items-center gap-1 rounded-2xl rounded-bl-sm bg-secondary px-3.5 py-3">
+              <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground/60 [animation-delay:-0.3s]" />
+              <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground/60 [animation-delay:-0.15s]" />
+              <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground/60" />
             </div>
           </div>
         )}
+
+        <div ref={bottomRef} />
       </div>
 
-      <div className="flex gap-2">
+      {/* Input bar — anchored to the bottom of the chat frame */}
+      <div className="flex shrink-0 items-center gap-2 border-t bg-background/80 px-3 py-3 backdrop-blur-sm">
         <input
           type="text"
           value={input}
@@ -118,15 +149,15 @@ export function ChatPanel({
             }
           }}
           placeholder={labels.chatPlaceholder}
-          className="flex-1 rounded-md border bg-background px-3 py-2 text-sm outline-none transition-colors placeholder:text-muted-foreground focus:ring-1 focus:ring-accent"
+          className="flex-1 rounded-full border bg-background px-4 py-2.5 text-sm outline-none transition-colors placeholder:text-muted-foreground focus:ring-1 focus:ring-accent"
           disabled={isLoading}
         />
         <button
           onClick={() => void handleSend()}
           disabled={!input.trim() || isLoading}
-          className="flex h-9 w-9 items-center justify-center rounded-md bg-accent text-accent-foreground transition-colors hover:bg-accent/90 disabled:opacity-40"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent text-accent-foreground transition-colors hover:bg-accent/90 disabled:opacity-40"
         >
-          <Send className="h-3.5 w-3.5" />
+          <Send className="h-4 w-4" />
         </button>
       </div>
     </div>
