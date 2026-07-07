@@ -127,6 +127,11 @@ export function ChatPanel({
                       </a>
                     </div>
                   )}
+                  {!msg.imageUrl && msg.imageError && (
+                    <div className="mb-2.5 rounded-lg border border-destructive/30 bg-destructive/10 px-2.5 py-1.5 text-[11px] text-destructive">
+                      สร้างภาพไม่สำเร็จ: {msg.imageError}
+                    </div>
+                  )}
                   <ReactMarkdown remarkPlugins={[remarkGfm]} components={assistantMd}>
                     {msg.content}
                   </ReactMarkdown>

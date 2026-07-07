@@ -341,7 +341,7 @@ export default function Index() {
 
         setChatMessages((prev) => [
           ...prev,
-          { role: "assistant", content: res.answer, imageUrl: res.imageUrl },
+          { role: "assistant", content: res.answer, imageUrl: res.imageUrl, imageError: res.imageError },
         ]);
       } catch (error: any) {
         console.error(error);

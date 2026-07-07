@@ -77,6 +77,7 @@ export type ChatWithPredictionParams = {
 export type ChatWithPredictionResponse = {
   answer: string;
   imageUrl?: string;
+  imageError?: string;
   fallback?: boolean;
   providerUsed?: string;
   modelUsed?: string;

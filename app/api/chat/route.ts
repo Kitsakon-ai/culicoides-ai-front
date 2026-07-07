@@ -300,9 +300,11 @@ Rules:
   }
 }
 
-async function generateImageOpenAI(prompt: string, body: ChatBody): Promise<string | null> {
+type ImageGenResult = { url: string | null; error?: string };
+
+async function generateImageOpenAI(prompt: string, body: ChatBody): Promise<ImageGenResult> {
   const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) return null;
+  if (!apiKey) return { url: null, error: "Missing OPENAI_API_KEY" };
   try {
     const refined = await buildDALLEPrompt(prompt, apiKey, body);
     const res = await fetch("https://api.openai.com/v1/images/generations", {
@@ -321,22 +323,22 @@ async function generateImageOpenAI(prompt: string, body: ChatBody): Promise<stri
     if (!res.ok) {
       const errText = await res.text();
       console.error("OpenAI image gen error:", res.status, errText);
-      return null;
+      return { url: null, error: `OpenAI image gen error ${res.status}: ${errText.slice(0, 300)}` };
     }
     const data = await res.json();
     // gpt-image-1 returns b64_json
     const b64 = data?.data?.[0]?.b64_json as string | undefined;
-    if (b64) return `data:image/png;base64,${b64}`;
-    return (data?.data?.[0]?.url as string) ?? null;
+    if (b64) return { url: `data:image/png;base64,${b64}` };
+    return { url: (data?.data?.[0]?.url as string) ?? null };
   } catch (e) {
     console.error("generateImageOpenAI exception:", e);
-    return null;
+    return { url: null, error: e instanceof Error ? e.message : "Unknown OpenAI image gen error" };
   }
 }
 
-async function generateImageGemini(prompt: string): Promise<string | null> {
+async function generateImageGemini(prompt: string): Promise<ImageGenResult> {
   const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) return null;
+  if (!apiKey) return { url: null, error: "Missing GEMINI_API_KEY" };
   try {
     const res = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp-image-generation:generateContent?key=${apiKey}`,
@@ -350,28 +352,29 @@ async function generateImageGemini(prompt: string): Promise<string | null> {
       }
     );
     if (!res.ok) {
-      console.error("Gemini image gen error:", res.status, await res.text());
-      return null;
+      const errText = await res.text();
+      console.error("Gemini image gen error:", res.status, errText);
+      return { url: null, error: `Gemini image gen error ${res.status}: ${errText.slice(0, 300)}` };
     }
     const data = await res.json();
     const parts: { inlineData?: { mimeType: string; data: string } }[] =
       data?.candidates?.[0]?.content?.parts ?? [];
     for (const part of parts) {
       if (part.inlineData?.data) {
-        return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+        return { url: `data:${part.inlineData.mimeType};base64,${part.inlineData.data}` };
       }
     }
-    return null;
+    return { url: null, error: "Gemini returned no image data" };
   } catch (e) {
     console.error("generateImageGemini exception:", e);
-    return null;
+    return { url: null, error: e instanceof Error ? e.message : "Unknown Gemini image gen error" };
   }
 }
 
-async function generateImage(provider: string, prompt: string, body: ChatBody): Promise<string | null> {
+async function generateImage(provider: string, prompt: string, body: ChatBody): Promise<ImageGenResult> {
   if (provider === "gemini") {
-    const url = await generateImageGemini(prompt);
-    if (url) return url;
+    const result = await generateImageGemini(prompt);
+    if (result.url) return result;
   }
   return generateImageOpenAI(prompt, body);
 }
@@ -390,7 +393,7 @@ export async function POST(req: Request) {
       ? buildVisionPrompt(body)
       : buildExplanationPrompt(body);
 
-    const [answer, imageUrl] = await Promise.all([
+    const [answer, imageResult] = await Promise.all([
       body.provider === "openai"
         ? askOpenAI(body, prompt)
         : body.provider === "claude"
@@ -399,7 +402,11 @@ export async function POST(req: Request) {
       isImgGen ? generateImage(body.provider, body.message, body) : Promise.resolve(null),
     ]);
 
-    return NextResponse.json({ answer, imageUrl: imageUrl ?? undefined });
+    return NextResponse.json({
+      answer,
+      imageUrl: imageResult?.url ?? undefined,
+      imageError: imageResult?.error,
+    });
   } catch (error) {
     console.error("POST /api/chat error:", error);
 

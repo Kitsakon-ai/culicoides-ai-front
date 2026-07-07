@@ -44,6 +44,7 @@ export type ChatMessage = {
   role: "user" | "assistant";
   content: string;
   imageUrl?: string;
+  imageError?: string;
 };
 
 export type HistoryItem = {
