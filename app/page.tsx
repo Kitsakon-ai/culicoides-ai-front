@@ -327,15 +327,20 @@ export default function Index() {
           ...prev,
           { role: "assistant", content: res.answer, imageUrl: res.imageUrl },
         ]);
-      } catch (error) {
+      } catch (error: any) {
         console.error(error);
-        setChatMessages((prev) => [
-          ...prev,
-          {
-            role: "assistant",
-            content: lang === "th" ? "เกิดข้อผิดพลาดในการแชท" : "Chat error",
-          },
-        ]);
+        const rawMessage = typeof error?.message === "string" ? error.message : "";
+        const isQuota = /insufficient_quota|quota/i.test(rawMessage);
+
+        const content = isQuota
+          ? lang === "th"
+            ? "โควต้าการใช้งาน AI เต็มแล้ว กรุณาลองใหม่ภายหลัง"
+            : "AI usage quota exceeded, please try again later"
+          : lang === "th"
+          ? `เกิดข้อผิดพลาดในการแชท${rawMessage ? `: ${rawMessage}` : ""}`
+          : `Chat error${rawMessage ? `: ${rawMessage}` : ""}`;
+
+        setChatMessages((prev) => [...prev, { role: "assistant", content }]);
       } finally {
         setIsChatLoading(false);
       }
