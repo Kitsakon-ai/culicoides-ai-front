@@ -1,6 +1,10 @@
 import type { AnnotatedFeature } from "@/app/api/annotate/route";
 
-const SCALE = 2;
+// Draw at half the source photo's resolution — these are often multi-thousand-px
+// microscope scans, so the full-res canvas produces a huge base64 PNG that's slow
+// to generate and slow to load in the <img>. Label sizing below is proportional
+// to the canvas footprint, so halving this doesn't affect legibility.
+const SCALE = 0.5;
 
 function hexToRgba(hex: string, alpha: number): string {
   const r = parseInt(hex.slice(1, 3), 16);
@@ -15,14 +19,15 @@ function drawArrowLine(
   x1: number, y1: number,
   x2: number, y2: number,
   color: string,
+  unit: number,
 ) {
-  const arrowLen = 14 * SCALE;
+  const arrowLen = unit * 0.9;
   const angle = Math.atan2(y2 - y1, x2 - x1);
 
   ctx.strokeStyle = color;
-  ctx.lineWidth = 2.5 * SCALE;
+  ctx.lineWidth = Math.max(1.5, unit * 0.14);
   ctx.shadowColor = "rgba(0,0,0,0.5)";
-  ctx.shadowBlur = 4;
+  ctx.shadowBlur = unit * 0.3;
   ctx.beginPath();
   ctx.moveTo(x1, y1);
   ctx.lineTo(x2, y2);
@@ -57,14 +62,23 @@ function drawFeatureLabel(
   canvasW: number,
   canvasH: number,
 ) {
-  const thSize  = 18 * SCALE;
-  const enSize  = 14 * SCALE;
-  const pad     = 10 * SCALE;
-  const lineGap = 6  * SCALE;
-  const dotR    = 8  * SCALE;
+  // Size everything as a fraction of the image's own footprint, not a flat px
+  // constant — apparent on-screen size then only depends on the display width
+  // the browser renders the canvas at, not the source photo's resolution.
+  // (A fixed upper clamp here breaks that: on a multi-thousand-px microscope
+  // photo it caps the font at a size that reads as a few px once the canvas
+  // is scaled down to fit the panel — illegible, "mushed" text.)
+  const unit    = Math.max(9, Math.min(canvasW, canvasH) * 0.024);
+  const thSize  = unit;
+  const enSize  = unit * 0.76;
+  const pad     = unit * 0.55;
+  const lineGap = unit * 0.32;
+  const dotR    = unit * 0.42;
+  const margin  = unit * 1.3;
+  const offset  = unit * 4.2; // horizontal gap between the feature dot and its label box
 
   // Measure label box
-  ctx.font = `bold ${thSize}px 'Segoe UI', Tahoma, Arial, sans-serif`;
+  ctx.font = `600 ${thSize}px 'Segoe UI', Tahoma, Arial, sans-serif`;
   const thW = ctx.measureText(labelTh).width;
   ctx.font = `${enSize}px 'Segoe UI', Tahoma, Arial, sans-serif`;
   const enW = ctx.measureText(labelEn).width;
@@ -72,14 +86,13 @@ function drawFeatureLabel(
   const boxH = thSize + enSize + lineGap + pad * 2;
 
   // Decide label placement: prefer right side, flip if near edge
-  const margin = 20 * SCALE;
   let labelX: number;
   let labelY: number;
 
-  if (featX + 80 * SCALE + boxW > canvasW - margin) {
-    labelX = featX - 80 * SCALE - boxW;
+  if (featX + offset + boxW > canvasW - margin) {
+    labelX = featX - offset - boxW;
   } else {
-    labelX = featX + 80 * SCALE;
+    labelX = featX + offset;
   }
 
   labelY = featY - boxH / 2;
@@ -87,13 +100,13 @@ function drawFeatureLabel(
 
   // Dot at feature point
   ctx.shadowColor = color;
-  ctx.shadowBlur = 10;
+  ctx.shadowBlur = unit * 0.5;
   ctx.fillStyle = color;
   ctx.beginPath();
   ctx.arc(featX, featY, dotR, 0, Math.PI * 2);
   ctx.fill();
   ctx.strokeStyle = "#ffffff";
-  ctx.lineWidth = 2 * SCALE;
+  ctx.lineWidth = Math.max(1, unit * 0.1);
   ctx.stroke();
   ctx.shadowColor = "transparent";
   ctx.shadowBlur = 0;
@@ -101,22 +114,22 @@ function drawFeatureLabel(
   // Arrow: from edge of label box to near the feature dot
   const arrowStartX = labelX < featX ? labelX + boxW : labelX;
   const arrowStartY = labelY + boxH / 2;
-  const arrowEndX   = featX + (labelX < featX ? 1 : -1) * (dotR + 4 * SCALE);
+  const arrowEndX   = featX + (labelX < featX ? 1 : -1) * (dotR + unit * 0.2);
   const arrowEndY   = featY;
-  drawArrowLine(ctx, arrowStartX, arrowStartY, arrowEndX, arrowEndY, color);
+  drawArrowLine(ctx, arrowStartX, arrowStartY, arrowEndX, arrowEndY, color, unit);
 
   // Label background
   ctx.fillStyle = hexToRgba("#0a0a1a", 0.88);
   ctx.strokeStyle = color;
-  ctx.lineWidth = 2 * SCALE;
+  ctx.lineWidth = Math.max(1, unit * 0.1);
   ctx.beginPath();
-  ctx.roundRect(labelX, labelY, boxW, boxH, 7 * SCALE);
+  ctx.roundRect(labelX, labelY, boxW, boxH, unit * 0.35);
   ctx.fill();
   ctx.stroke();
 
   // Thai text
   ctx.fillStyle = "#ffffff";
-  ctx.font = `bold ${thSize}px 'Segoe UI', Tahoma, Arial, sans-serif`;
+  ctx.font = `600 ${thSize}px 'Segoe UI', Tahoma, Arial, sans-serif`;
   ctx.textAlign = "left";
   ctx.textBaseline = "top";
   ctx.fillText(labelTh, labelX + pad, labelY + pad);
@@ -164,13 +177,14 @@ export async function drawAnnotatedWing(
         });
       }
 
-      // Bottom info bar
-      const barH = 40 * SCALE;
+      // Bottom info bar — sized off the image footprint too, same reasoning as labels.
+      const barUnit = Math.max(9, Math.min(W, H) * 0.02);
+      const barH = barUnit * 2.6;
       ctx.fillStyle = hexToRgba("#0a0a1a", 0.88);
       ctx.fillRect(0, H - barH, W, barH);
 
       ctx.fillStyle = "#ffffff";
-      ctx.font = `bold ${14 * SCALE}px 'Segoe UI', Tahoma, Arial, sans-serif`;
+      ctx.font = `600 ${barUnit}px 'Segoe UI', Tahoma, Arial, sans-serif`;
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       ctx.fillText(
@@ -179,7 +193,9 @@ export async function drawAnnotatedWing(
         H - barH / 2,
       );
 
-      resolve(canvas.toDataURL("image/png"));
+      // JPEG compresses this photographic content far smaller than PNG, and
+      // nothing drawn here needs an alpha channel.
+      resolve(canvas.toDataURL("image/jpeg", 0.85));
     };
     img.onerror = () => reject(new Error("Failed to load image"));
     img.src = imageSrc;

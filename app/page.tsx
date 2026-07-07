@@ -62,9 +62,11 @@ import {
   uploadImage,
   dataUrlToFile,
   getProvinces,
+  resolveAiProvider,
 } from "@/lib/api";
 import { drawAnnotatedWing } from "@/lib/annotate";
 import { DEFAULT_AI_SYSTEM_PROMPT } from "@/lib/prompts";
+import { toast } from "@/components/ui/sonner";
 
 type NavSection = "upload" | "results" | "chat" | "inspector";
 
@@ -80,6 +82,23 @@ function toPredictionPayload(result: PredictionResult) {
     topK: result.topK,
     explanation: result.explanation,
   };
+}
+
+// ตรวจจับ error โควต้า/usage limit ของ provider ต่าง ๆ (Anthropic ใช้คำว่า "usage limit"
+// ไม่ใช่ "quota" เหมือน OpenAI) แล้วแปลงเป็นข้อความที่ผู้ใช้เข้าใจได้ทันที
+function friendlyChatErrorMessage(error: unknown, lang: Lang): string {
+  const rawMessage = error instanceof Error ? error.message : String(error ?? "");
+  const isQuota = /insufficient_quota|quota|usage limit/i.test(rawMessage);
+
+  if (isQuota) {
+    return lang === "th"
+      ? "โควต้าการใช้งาน AI เต็มแล้ว กรุณาลองใหม่ภายหลัง"
+      : "AI usage quota exceeded, please try again later";
+  }
+
+  return lang === "th"
+    ? `เกิดข้อผิดพลาด${rawMessage ? `: ${rawMessage}` : ""}`
+    : `Error${rawMessage ? `: ${rawMessage}` : ""}`;
 }
 
 export default function Index() {
@@ -164,9 +183,17 @@ export default function Index() {
           body: JSON.stringify({
             imageUrl: originalUpload.url,
             aiModel,
+            provider: resolveAiProvider(aiModel),
           }),
         });
         const { features } = await annotateRes.json();
+        if (features.length === 0) {
+          toast.info(
+            lang === "th"
+              ? "AI ยังไม่สามารถระบุจุดสังเกตบนภาพนี้ได้อัตโนมัติ"
+              : "AI couldn't automatically pinpoint features on this image"
+          );
+        }
         annotatedImage = await drawAnnotatedWing(
           imagePreview!,
           null,
@@ -196,13 +223,13 @@ export default function Index() {
         .then((res) => setProvinces(res.provinces))
         .catch(() => setProvinces([]))
         .finally(() => setIsMapLoading(false));
-    } catch (error: any) {
+    } catch (error) {
       console.error(error);
-      alert(error.message || "เกิดข้อผิดพลาด");
+      toast.error(friendlyChatErrorMessage(error, lang));
     } finally {
       setIsAnalyzing(false);
     }
-  }, [imageFile, mlModel, aiModel, systemPrompt]);
+  }, [imageFile, mlModel, aiModel, systemPrompt, lang]);
 
   const [isExplaining, setIsExplaining] = useState(false);
 
@@ -255,9 +282,17 @@ export default function Index() {
             body: JSON.stringify({
               imageUrl: originalUpload.url,
               aiModel,
+              provider: resolveAiProvider(aiModel),
             }),
           });
           const { features } = await annotateRes.json();
+          if (features.length === 0) {
+            toast.info(
+              lang === "th"
+                ? "AI ยังไม่สามารถระบุจุดสังเกตบนภาพนี้ได้อัตโนมัติ"
+                : "AI couldn't automatically pinpoint features on this image"
+            );
+          }
           annotatedImage = await drawAnnotatedWing(
             imagePreview,
             null,
@@ -283,10 +318,22 @@ export default function Index() {
       });
     } catch (error) {
       console.error(error);
+      if (explanationRequestId.current !== requestId) return;
+
+      const message = friendlyChatErrorMessage(error, lang);
+      toast.error(message);
+
+      setResult((prev) => (prev ? { ...prev, explanation: message } : prev));
+      setChatMessages((prev) => {
+        if (prev.length === 0 || prev[0].role !== "assistant") return prev;
+        const updated = [...prev];
+        updated[0] = { ...updated[0], content: message };
+        return updated;
+      });
     } finally {
       if (explanationRequestId.current === requestId) setIsExplaining(false);
     }
-  }, [result, imageFile, aiModel, systemPrompt, imagePreview]);
+  }, [result, imageFile, aiModel, systemPrompt, imagePreview, lang]);
 
   // เปลี่ยนโมเดล AI แล้วให้สร้างคำอธิบายใหม่อัตโนมัติ
   useEffect(() => {
@@ -343,19 +390,10 @@ export default function Index() {
           ...prev,
           { role: "assistant", content: res.answer, imageUrl: res.imageUrl, imageError: res.imageError },
         ]);
-      } catch (error: any) {
+      } catch (error) {
         console.error(error);
-        const rawMessage = typeof error?.message === "string" ? error.message : "";
-        const isQuota = /insufficient_quota|quota/i.test(rawMessage);
-
-        const content = isQuota
-          ? lang === "th"
-            ? "โควต้าการใช้งาน AI เต็มแล้ว กรุณาลองใหม่ภายหลัง"
-            : "AI usage quota exceeded, please try again later"
-          : lang === "th"
-          ? `เกิดข้อผิดพลาดในการแชท${rawMessage ? `: ${rawMessage}` : ""}`
-          : `Chat error${rawMessage ? `: ${rawMessage}` : ""}`;
-
+        const content = friendlyChatErrorMessage(error, lang);
+        toast.error(content);
         setChatMessages((prev) => [...prev, { role: "assistant", content }]);
       } finally {
         setIsChatLoading(false);

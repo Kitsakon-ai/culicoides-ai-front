@@ -56,6 +56,12 @@ export type ChatPredictionInput = Pick<
   "species" | "genus" | "confidence" | "confidenceLevel" | "topK" | "explanation"
 >;
 
+export function resolveAiProvider(aiModel: string): "openai" | "claude" | "gemini" {
+  if (aiModel.startsWith("gpt")) return "openai";
+  if (aiModel.startsWith("claude")) return "claude";
+  return "gemini";
+}
+
 export type ChatWithPredictionParams = {
   message: string;
   ai_model: string;
@@ -86,11 +92,7 @@ export type ChatWithPredictionResponse = {
 export async function chatWithPrediction(
   payload: ChatWithPredictionParams
 ): Promise<ChatWithPredictionResponse> {
-  const provider = payload.ai_model.startsWith("gpt")
-    ? "openai"
-    : payload.ai_model.startsWith("claude")
-    ? "claude"
-    : "gemini";
+  const provider = resolveAiProvider(payload.ai_model);
 
   const res = await fetch("/api/chat", {
     method: "POST",

@@ -58,6 +58,10 @@ const mdComponents: Components = {
     <em className="italic text-muted-foreground">{children}</em>
   ),
   hr: () => <hr className="my-3 border-border/50" />,
+  // The model has no way to attach a real image inline in this text response —
+  // the annotated wing photo above is the only real image. Drop any markdown
+  // image syntax it emits anyway instead of rendering a broken <img>.
+  img: () => null,
   blockquote: ({ children }) => (
     <blockquote className="border-l-2 border-accent/40 pl-3 text-sm italic text-muted-foreground my-2.5">
       {children}
