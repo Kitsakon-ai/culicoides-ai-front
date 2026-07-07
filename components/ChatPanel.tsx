@@ -107,9 +107,30 @@ export function ChatPanel({
               {msg.role === "user" ? (
                 msg.content
               ) : (
-                <ReactMarkdown remarkPlugins={[remarkGfm]} components={assistantMd}>
-                  {msg.content}
-                </ReactMarkdown>
+                <>
+                  {msg.imageUrl && (
+                    <div className="mb-2.5">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={msg.imageUrl}
+                        alt="AI generated image"
+                        className="max-w-full rounded-lg border border-border/40 object-contain"
+                        style={{ maxHeight: 400 }}
+                      />
+                      <a
+                        href={msg.imageUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mt-1 flex items-center gap-1 text-[10px] text-accent hover:underline"
+                      >
+                        เปิดรูปขนาดเต็ม ↗
+                      </a>
+                    </div>
+                  )}
+                  <ReactMarkdown remarkPlugins={[remarkGfm]} components={assistantMd}>
+                    {msg.content}
+                  </ReactMarkdown>
+                </>
               )}
             </div>
             {msg.role === "user" && (

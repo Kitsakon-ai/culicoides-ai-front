@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import {
   Play,
   Loader2,
@@ -63,6 +63,8 @@ import {
   dataUrlToFile,
   getProvinces,
 } from "@/lib/api";
+import { drawAnnotatedWing } from "@/lib/annotate";
+import { DEFAULT_AI_SYSTEM_PROMPT } from "@/lib/prompts";
 
 type NavSection = "upload" | "results" | "chat" | "inspector";
 
@@ -83,6 +85,8 @@ export default function Index() {
   const [historyItems, setHistoryItems] = useState<HistoryItem[]>([]);
   const [provinces, setProvinces] = useState<string[]>([]);
   const [isMapLoading, setIsMapLoading] = useState(false);
+  const [systemPrompt, setSystemPrompt] = useState(DEFAULT_AI_SYSTEM_PROMPT);
+  const explanationRequestId = useRef(0);
 
   const handleImageSelect = useCallback((file: File, preview: string) => {
     setImageFile(file);
@@ -120,6 +124,7 @@ export default function Index() {
         ai_model: aiModel,
         mode: "explanation",
         prediction: data,
+        systemPrompt,
         xai: {
           highlightedRegions: ["กลางปีก", "ขอบปีก", "ลำตัว"],
           confidenceDrivers: [
@@ -137,9 +142,32 @@ export default function Index() {
         },
       });
 
+      let annotatedImage: string | null = null;
+      try {
+        const annotateRes = await fetch("/api/annotate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            imageUrl: originalUpload.url,
+            aiModel,
+          }),
+        });
+        const { features } = await annotateRes.json();
+        annotatedImage = await drawAnnotatedWing(
+          imagePreview!,
+          null,
+          data.species,
+          data.confidence,
+          features,
+        );
+      } catch {
+        // annotation is optional — silently skip on failure
+      }
+
       setResult({
         ...data,
         explanation: explainRes.answer,
+        annotatedImage,
       });
 
       setChatMessages([{ role: "assistant", content: explainRes.answer }]);
@@ -160,75 +188,101 @@ export default function Index() {
     } finally {
       setIsAnalyzing(false);
     }
-  }, [imageFile, mlModel, aiModel]);
+  }, [imageFile, mlModel, aiModel, systemPrompt]);
 
   const [isExplaining, setIsExplaining] = useState(false);
 
-  // เปลี่ยนโมเดล AI แล้วให้สร้างคำอธิบายใหม่อัตโนมัติ โดยผลทำนาย/ภาพ/taxonomy เดิมไม่เปลี่ยน
-  useEffect(() => {
+  // สร้างคำอธิบายใหม่โดยใช้ผลทำนาย/ภาพ/taxonomy เดิม แต่ ai_model หรือ systemPrompt อาจเปลี่ยนไป
+  const regenerateExplanation = useCallback(async () => {
     if (!result || !imageFile) return;
 
-    let cancelled = false;
+    const requestId = ++explanationRequestId.current;
 
-    const regenerateExplanation = async () => {
+    try {
+      setIsExplaining(true);
+
+      const originalUpload = await uploadImage(imageFile);
+      const heatmapUpload = result.gradcam
+        ? await uploadImage(dataUrlToFile(result.gradcam, "gradcam.png"))
+        : null;
+
+      const explainRes = await chatWithPrediction({
+        message:
+          "ช่วยอธิบายผล Explainable AI โดยเน้นลักษณะของปีกจากภาพต้นฉบับร่วมกับ heatmap ตอบ 3-5 บรรทัด",
+        ai_model: aiModel,
+        mode: "explanation",
+        prediction: result,
+        systemPrompt,
+        xai: {
+          highlightedRegions: ["กลางปีก", "ขอบปีก", "ลำตัว"],
+          confidenceDrivers: [
+            "Grad-CAM เน้นบริเวณปีกเป็นหลัก",
+            "ลักษณะบริเวณปีกสอดคล้องกับชนิดที่ทำนาย",
+          ],
+          warningFlags:
+            result.confidenceLevel === "low" || result.confidenceLevel === "ood"
+              ? ["ผลยังเป็นเบื้องต้น"]
+              : [],
+        },
+        images: {
+          original: originalUpload.url,
+          heatmap: heatmapUpload?.url ?? null,
+        },
+      });
+
+      if (explanationRequestId.current !== requestId) return;
+
+      let annotatedImage: string | null = null;
       try {
-        setIsExplaining(true);
-
-        const originalUpload = await uploadImage(imageFile);
-        const heatmapUpload = result.gradcam
-          ? await uploadImage(dataUrlToFile(result.gradcam, "gradcam.png"))
-          : null;
-
-        const explainRes = await chatWithPrediction({
-          message:
-            "ช่วยอธิบายผล Explainable AI โดยเน้นลักษณะของปีกจากภาพต้นฉบับร่วมกับ heatmap ตอบ 3-5 บรรทัด",
-          ai_model: aiModel,
-          mode: "explanation",
-          prediction: result,
-          xai: {
-            highlightedRegions: ["กลางปีก", "ขอบปีก", "ลำตัว"],
-            confidenceDrivers: [
-              "Grad-CAM เน้นบริเวณปีกเป็นหลัก",
-              "ลักษณะบริเวณปีกสอดคล้องกับชนิดที่ทำนาย",
-            ],
-            warningFlags:
-              result.confidenceLevel === "low" || result.confidenceLevel === "ood"
-                ? ["ผลยังเป็นเบื้องต้น"]
-                : [],
-          },
-          images: {
-            original: originalUpload.url,
-            heatmap: heatmapUpload?.url ?? null,
-          },
-        });
-
-        if (!cancelled) {
-          setResult((prev) =>
-            prev ? { ...prev, explanation: explainRes.answer } : prev
-          );
-
-          // ข้อความแรกในแชต (คำอธิบายที่ทักมาอัตโนมัติ) อัปเดตตาม — ส่วนบทสนทนาถัดจากนั้นคงเดิม
-          setChatMessages((prev) => {
-            if (prev.length === 0 || prev[0].role !== "assistant") return prev;
-            const updated = [...prev];
-            updated[0] = { ...updated[0], content: explainRes.answer };
-            return updated;
+        if (imagePreview) {
+          const annotateRes = await fetch("/api/annotate", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              imageUrl: originalUpload.url,
+              aiModel,
+            }),
           });
+          const { features } = await annotateRes.json();
+          annotatedImage = await drawAnnotatedWing(
+            imagePreview,
+            null,
+            result.species,
+            result.confidence,
+            features,
+          );
         }
-      } catch (error) {
-        console.error(error);
-      } finally {
-        if (!cancelled) setIsExplaining(false);
-      }
-    };
+      } catch { /* optional */ }
 
+      if (explanationRequestId.current !== requestId) return;
+
+      setResult((prev) =>
+        prev ? { ...prev, explanation: explainRes.answer, annotatedImage } : prev
+      );
+
+      // ข้อความแรกในแชต (คำอธิบายที่ทักมาอัตโนมัติ) อัปเดตตาม — ส่วนบทสนทนาถัดจากนั้นคงเดิม
+      setChatMessages((prev) => {
+        if (prev.length === 0 || prev[0].role !== "assistant") return prev;
+        const updated = [...prev];
+        updated[0] = { ...updated[0], content: explainRes.answer };
+        return updated;
+      });
+    } catch (error) {
+      console.error(error);
+    } finally {
+      if (explanationRequestId.current === requestId) setIsExplaining(false);
+    }
+  }, [result, imageFile, aiModel, systemPrompt, imagePreview]);
+
+  // เปลี่ยนโมเดล AI แล้วให้สร้างคำอธิบายใหม่อัตโนมัติ
+  useEffect(() => {
     regenerateExplanation();
-
-    return () => {
-      cancelled = true;
-    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [aiModel]);
+
+  const handleResetSystemPrompt = useCallback(() => {
+    setSystemPrompt(DEFAULT_AI_SYSTEM_PROMPT);
+  }, []);
 
   const handleChatSend = useCallback(
     async (message: string) => {
@@ -271,7 +325,7 @@ export default function Index() {
 
         setChatMessages((prev) => [
           ...prev,
-          { role: "assistant", content: res.answer },
+          { role: "assistant", content: res.answer, imageUrl: res.imageUrl },
         ]);
       } catch (error) {
         console.error(error);
@@ -775,6 +829,7 @@ export default function Index() {
                           label=""
                           aiModel={selectedAiName}
                           isLoading={isExplaining}
+                          annotatedImage={result?.annotatedImage}
                         />
 
                         <div>
@@ -873,6 +928,12 @@ export default function Index() {
                     selectedAiModel={aiModel}
                     result={result}
                     labels={t as unknown as Record<string, string>}
+                    systemPrompt={systemPrompt}
+                    defaultSystemPrompt={DEFAULT_AI_SYSTEM_PROMPT}
+                    onSystemPromptChange={setSystemPrompt}
+                    onResetSystemPrompt={handleResetSystemPrompt}
+                    onApplySystemPrompt={regenerateExplanation}
+                    isApplyingSystemPrompt={isExplaining}
                   />
                   <HistoryPanel items={historyItems} />
                 </motion.div>

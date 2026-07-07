@@ -231,7 +231,7 @@ export function ThailandMap({ highlightedProvinces, species, isLoading }: Props)
 
       {highlightedProvinces.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
-          {highlightedProvinces.map((p) => (
+          {[...new Set(highlightedProvinces)].map((p) => (
             <span
               key={p}
               className="flex items-center gap-1 rounded-full bg-accent/15 px-2 py-0.5 text-xs text-accent"

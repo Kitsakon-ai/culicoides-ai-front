@@ -54,6 +54,7 @@ export async function predictImage(
 export type ChatWithPredictionParams = {
   message: string;
   ai_model: string;
+  systemPrompt?: string;
   prediction?: PredictionResult | null;
   mode?: "explanation" | "vision";
   xai?: {
@@ -70,6 +71,7 @@ export type ChatWithPredictionParams = {
 
 export type ChatWithPredictionResponse = {
   answer: string;
+  imageUrl?: string;
   fallback?: boolean;
   providerUsed?: string;
   modelUsed?: string;

@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
+import { DEFAULT_AI_SYSTEM_PROMPT } from "@/lib/prompts";
 
 export const runtime = "nodejs";
+export const maxDuration = 60;
 
 type Msg = {
   role: "user" | "assistant";
@@ -13,6 +15,7 @@ type ChatBody = {
   ai_model: string;
   mode?: "explanation" | "vision";
   message: string;
+  systemPrompt?: string;
   prediction: {
     species: string;
     genus: string;
@@ -39,40 +42,23 @@ function isHttpUrl(value?: string | null) {
 
 function buildExplanationPrompt(body: ChatBody) {
   const p = body.prediction;
+  const predContext = p
+    ? `\n\nผล ML model: ทำนาย Culicoides ${p.species} (ความเชื่อมั่น ${(p.confidence * 100).toFixed(1)}%, สถานะ: ${p.confidenceLevel})${p.topK ? ` | topK: ${p.topK.map((x) => `${x.name} ${(x.probability * 100).toFixed(1)}%`).join(", ")}` : ""}`
+    : "";
 
-  if (!p) {
-    return `ตอบเป็นภาษาไทย แจ้งว่าไม่มีข้อมูลผลทำนายเพียงพอ`;
-  }
+  const persona = body.systemPrompt?.trim() || DEFAULT_AI_SYSTEM_PROMPT;
 
-  return `คุณเป็นผู้เชี่ยวชาญอธิบายผล Explainable AI สำหรับการจำแนกแมลง Culicoides
+  return `${persona}${predContext}`;
+}
 
-ข้อมูลผลทำนาย:
-- ชนิด: ${p.species} | สกุล: ${p.genus}
-- ความเชื่อมั่น: ${(p.confidence * 100).toFixed(2)}% | สถานะ: ${p.confidenceLevel}
-- topK: ${p.topK?.map((x) => `${x.name} ${(x.probability * 100).toFixed(1)}%`).join(", ") || "-"}
-- Grad-CAM เน้น: ${(body.xai?.highlightedRegions ?? []).join(", ") || "-"}
-- confidenceDrivers: ${(body.xai?.confidenceDrivers ?? []).join(", ") || "-"}
-${p.confidenceLevel !== "high" ? `- ⚠ ความเชื่อมั่นต่ำหรือ OD` : ""}
-
-จงเขียนผลวิเคราะห์เป็นภาษาไทย จัดเป็น 4 หมวดตามนี้ทุกครั้ง:
-
-## ผลการทำนาย
-อธิบายชนิดที่ทำนาย ค่าความเชื่อมั่น สถานะ และ topK เปรียบเทียบ (3-4 bullet)
-
-## ลักษณะที่ตรวจพบ
-อธิบายลักษณะปีกจากภาพต้นฉบับที่สังเกตได้ เช่น รูปร่าง ลวดลาย ความเข้ม จุดสี (3-4 bullet)
-
-## การตีความ Heatmap (Grad-CAM)
-อธิบายว่า heatmap เน้นบริเวณใด และบริเวณนั้นสัมพันธ์กับการตัดสินใจของโมเดลอย่างไร (2-3 bullet)
-
-## ข้อแนะนำ
-${p.confidenceLevel !== "high" ? "เตือนว่าผลเบื้องต้น แนะนำการยืนยันเพิ่มเติม" : "ให้คำแนะนำเกี่ยวกับความน่าเชื่อถือของผล"} (1-2 bullet)
-
-กฎเคร่งครัด:
-- ใช้ ## สำหรับหัวข้อ และ - สำหรับ bullet เท่านั้น
-- ห้ามขึ้นต้นด้วยชื่อรูปแบบ เช่น "แบบ A" หรือ "รูปแบบ"
-- ห้ามแต่งรายละเอียดปีกที่ไม่มีในภาพ ถ้าไม่ชัดให้บอกตรง ๆ
-- ห้ามใช้ตัวเลขนำหน้าข้อ`;
+function buildImageGenTextPrompt(body: ChatBody): string {
+  const p = body.prediction;
+  const species = p ? `Culicoides ${p.species}` : "Culicoides";
+  return `คุณเป็น AI ผู้ช่วยวิจัยแมลง Culicoides ผู้ใช้ขอสร้างภาพ: "${body.message}"
+ระบบกำลังสร้างภาพ ${species} ให้อธิบายสั้น ๆ (2-3 ประโยค ภาษาไทย) ว่า:
+- ภาพที่จะได้รับจะแสดงลักษณะอะไรของ ${species}
+- ลักษณะสัณฐานวิทยาสำคัญที่ควรสังเกต
+ห้ามบอกว่าสร้างรูปไม่ได้ เพราะระบบกำลังสร้างรูปให้อยู่แล้ว`;
 }
 
 function buildVisionPrompt(body: ChatBody) {
@@ -82,7 +68,7 @@ function buildVisionPrompt(body: ChatBody) {
 
   const p = body.prediction;
 
-  return `คุณคือ AI ผู้ช่วยวิเคราะห์ภาพแมลง Culicoides ตอบภาษาไทย กระชับตรงคำถาม ไม่ต้องขยายความเกิน
+  return `คุณคือ AI ผู้ช่วยวิเคราะห์ภาพแมลง Culicoides ตอบภาษาไทย กระชับตรงคำถาม ไม่ต้องขยายความเกิน 
 
 บริบท:
 ${p ? `ทำนาย: ${p.species} (${(p.confidence * 100).toFixed(1)}%, ${p.confidenceLevel}) | topK: ${p.topK?.map((x) => `${x.name} ${(x.probability * 100).toFixed(1)}%`).join(", ") || "-"}` : "ไม่มีผลทำนาย"}
@@ -262,23 +248,158 @@ async function askClaude(body: ChatBody, prompt: string): Promise<string> {
   return textBlock?.type === "text" ? textBlock.text : "ไม่สามารถสร้างคำตอบได้";
 }
 
+// ---- Image generation ----
+
+function isImageGenRequest(message: string): boolean {
+  const lower = message.toLowerCase();
+  return [
+    "สร้างรูป", "วาดรูป", "สร้างภาพ", "วาดภาพ", "ทำรูป", "ออกแบบรูป", "เขียนรูป",
+    "generate image", "create image", "generate picture", "create picture",
+    "make image", "draw image", "draw me", "draw a ", "draw an ",
+  ].some((k) => lower.includes(k));
+}
+
+async function buildDALLEPrompt(
+  userMessage: string,
+  apiKey: string,
+  body: ChatBody,
+): Promise<string> {
+  const p = body.prediction;
+  const speciesCtx = p
+    ? `The current specimen is Culicoides ${p.species} (confidence ${(p.confidence * 100).toFixed(1)}%).`
+    : "This is a Culicoides (biting midge) research application.";
+
+  const systemPrompt = `You are a scientific image prompt engineer for a Culicoides (biting midge) entomology research application.
+${speciesCtx}
+Convert the user's request into a detailed English prompt for scientific image generation.
+Rules:
+- Always reference Culicoides (biting midge) specifically, never other insects
+- Use scientific microscopy / macro photography style language
+- Focus on wing morphology, venation, macrotrichia, patterns as relevant
+- Keep the prompt under 400 characters
+- Return ONLY the prompt, no explanation`;
+
+  try {
+    const res = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify({
+        model: "gpt-4o-mini",
+        max_tokens: 200,
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userMessage },
+        ],
+      }),
+    });
+    if (!res.ok) return userMessage;
+    const data = await res.json();
+    return (data?.choices?.[0]?.message?.content as string) || userMessage;
+  } catch {
+    return userMessage;
+  }
+}
+
+async function generateImageOpenAI(prompt: string, body: ChatBody): Promise<string | null> {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) return null;
+  try {
+    const refined = await buildDALLEPrompt(prompt, apiKey, body);
+    const res = await fetch("https://api.openai.com/v1/images/generations", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: "gpt-image-1",
+        prompt: refined,
+        n: 1,
+        size: "1024x1024",
+      }),
+    });
+    if (!res.ok) {
+      const errText = await res.text();
+      console.error("OpenAI image gen error:", res.status, errText);
+      return null;
+    }
+    const data = await res.json();
+    // gpt-image-1 returns b64_json
+    const b64 = data?.data?.[0]?.b64_json as string | undefined;
+    if (b64) return `data:image/png;base64,${b64}`;
+    return (data?.data?.[0]?.url as string) ?? null;
+  } catch (e) {
+    console.error("generateImageOpenAI exception:", e);
+    return null;
+  }
+}
+
+async function generateImageGemini(prompt: string): Promise<string | null> {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) return null;
+  try {
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp-image-generation:generateContent?key=${apiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: { responseModalities: ["IMAGE", "TEXT"] },
+        }),
+      }
+    );
+    if (!res.ok) {
+      console.error("Gemini image gen error:", res.status, await res.text());
+      return null;
+    }
+    const data = await res.json();
+    const parts: { inlineData?: { mimeType: string; data: string } }[] =
+      data?.candidates?.[0]?.content?.parts ?? [];
+    for (const part of parts) {
+      if (part.inlineData?.data) {
+        return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+      }
+    }
+    return null;
+  } catch (e) {
+    console.error("generateImageGemini exception:", e);
+    return null;
+  }
+}
+
+async function generateImage(provider: string, prompt: string, body: ChatBody): Promise<string | null> {
+  if (provider === "gemini") {
+    const url = await generateImageGemini(prompt);
+    if (url) return url;
+  }
+  return generateImageOpenAI(prompt, body);
+}
+
+// ---- Main handler ----
+
 export async function POST(req: Request) {
   try {
     const body = (await req.json()) as ChatBody;
 
-    const prompt =
-      body.mode === "vision"
-        ? buildVisionPrompt(body)
-        : buildExplanationPrompt(body);
+    const isImgGen = isImageGenRequest(body.message);
 
-    const answer =
+    const prompt = isImgGen
+      ? buildImageGenTextPrompt(body)
+      : body.mode === "vision"
+      ? buildVisionPrompt(body)
+      : buildExplanationPrompt(body);
+
+    const [answer, imageUrl] = await Promise.all([
       body.provider === "openai"
-        ? await askOpenAI(body, prompt)
+        ? askOpenAI(body, prompt)
         : body.provider === "claude"
-        ? await askClaude(body, prompt)
-        : await askGemini(body, prompt);
+        ? askClaude(body, prompt)
+        : askGemini(body, prompt),
+      isImgGen ? generateImage(body.provider, body.message, body) : Promise.resolve(null),
+    ]);
 
-    return NextResponse.json({ answer });
+    return NextResponse.json({ answer, imageUrl: imageUrl ?? undefined });
   } catch (error) {
     console.error("POST /api/chat error:", error);
 

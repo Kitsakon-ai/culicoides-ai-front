@@ -1,7 +1,7 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { Sparkles, Loader2 } from "lucide-react";
+import { Sparkles, Loader2, ExternalLink } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { Components } from "react-markdown";
@@ -11,6 +11,7 @@ interface ExplanationBlockProps {
   label: string;
   aiModel: string;
   isLoading?: boolean;
+  annotatedImage?: string | null;
 }
 
 const mdComponents: Components = {
@@ -40,7 +41,7 @@ const mdComponents: Components = {
     </ul>
   ),
   ol: ({ children }) => (
-    <ol className="mb-2.5 last:mb-0 space-y-1.5 pl-0 list-none counter-reset-item">
+    <ol className="mb-2.5 last:mb-0 space-y-1.5 pl-0 list-none">
       {children}
     </ol>
   ),
@@ -56,9 +57,7 @@ const mdComponents: Components = {
   em: ({ children }) => (
     <em className="italic text-muted-foreground">{children}</em>
   ),
-  hr: () => (
-    <hr className="my-3 border-border/50" />
-  ),
+  hr: () => <hr className="my-3 border-border/50" />,
   blockquote: ({ children }) => (
     <blockquote className="border-l-2 border-accent/40 pl-3 text-sm italic text-muted-foreground my-2.5">
       {children}
@@ -66,7 +65,16 @@ const mdComponents: Components = {
   ),
 };
 
-export function ExplanationBlock({ text, label, aiModel, isLoading }: ExplanationBlockProps) {
+function openImageInTab(src: string) {
+  const html = `<!DOCTYPE html><html><head><title>Wing Morphology Annotation</title>
+<style>body{margin:0;background:#111;display:flex;justify-content:center;}img{max-width:100%;height:auto;}</style>
+</head><body><img src="${src}" alt="Wing annotation"/></body></html>`;
+  const blob = new Blob([html], { type: "text/html" });
+  const url = URL.createObjectURL(blob);
+  window.open(url, "_blank");
+}
+
+export function ExplanationBlock({ text, label, aiModel, isLoading, annotatedImage }: ExplanationBlockProps) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 8 }}
@@ -101,6 +109,34 @@ export function ExplanationBlock({ text, label, aiModel, isLoading }: Explanatio
             </span>
           )}
         </div>
+
+        {/* Annotated wing image */}
+        <AnimatePresence>
+          {annotatedImage && !isLoading && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.3 }}
+              className="border-t px-4 pt-3 pb-3 space-y-2"
+            >
+              <p className="label-caps text-[10px] text-muted-foreground">Wing Morphology Annotation</p>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={annotatedImage}
+                alt="Annotated wing morphology"
+                className="w-full rounded-md border object-contain"
+              />
+              <button
+                onClick={() => openImageInTab(annotatedImage)}
+                className="flex items-center gap-1.5 text-[11px] text-accent hover:underline"
+              >
+                <ExternalLink className="h-3 w-3" />
+                เปิดรูปขนาดเต็ม
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Markdown body */}
         <div

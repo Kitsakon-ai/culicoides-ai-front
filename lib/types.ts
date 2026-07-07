@@ -33,6 +33,7 @@ export type PredictionResult = {
   gradcam?: string;
   heatmap?: string;
   explanation?: string;
+  annotatedImage?: string | null;
   modelUsed?: string | null;
   provinces?: string[];
   modelComparison?: ModelComparisonEntry[];
@@ -42,6 +43,7 @@ export type PredictionResult = {
 export type ChatMessage = {
   role: "user" | "assistant";
   content: string;
+  imageUrl?: string;
 };
 
 export type HistoryItem = {
