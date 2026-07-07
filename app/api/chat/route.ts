@@ -235,11 +235,12 @@ async function askClaude(body: ChatBody, prompt: string): Promise<string> {
 
   content.push({ type: "text", text: prompt });
 
-  const supportsThinking = body.ai_model.startsWith("claude-opus") || body.ai_model.startsWith("claude-sonnet");
+  // Adaptive thinking previously pushed this call to 27.9s in testing (vs. the
+  // ~5-8s Sonnet normally takes) — well past what Vercel's serverless function
+  // timeout allows, causing FUNCTION_INVOCATION_TIMEOUT / 504 in production.
   const stream = client.messages.stream({
     model: body.ai_model,
-    max_tokens: supportsThinking ? 16000 : 8192,
-    ...(supportsThinking ? { thinking: { type: "adaptive" } } : {}),
+    max_tokens: 8192,
     messages: [{ role: "user", content }],
   });
 
