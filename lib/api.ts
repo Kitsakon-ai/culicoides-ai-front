@@ -51,11 +51,16 @@ export async function predictImage(
   return res.json();
 }
 
+export type ChatPredictionInput = Pick<
+  PredictionResult,
+  "species" | "genus" | "confidence" | "confidenceLevel" | "topK" | "explanation"
+>;
+
 export type ChatWithPredictionParams = {
   message: string;
   ai_model: string;
   systemPrompt?: string;
-  prediction?: PredictionResult | null;
+  prediction?: ChatPredictionInput | null;
   mode?: "explanation" | "vision";
   xai?: {
     highlightedRegions?: string[];

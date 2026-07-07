@@ -68,6 +68,20 @@ import { DEFAULT_AI_SYSTEM_PROMPT } from "@/lib/prompts";
 
 type NavSection = "upload" | "results" | "chat" | "inspector";
 
+// ตัด field รูปภาพ (gradcam/annotatedImage/heatmap เป็น base64 ขนาดใหญ่) ออกก่อนส่งไป /api/chat
+// เพราะ backend ใช้แค่ species/genus/confidence/topK/explanation และการส่ง base64 ซ้ำทุกครั้ง
+// ทำให้ payload ใหญ่เกิน Vercel function limit ได้ (FUNCTION_PAYLOAD_TOO_LARGE)
+function toPredictionPayload(result: PredictionResult) {
+  return {
+    species: result.species,
+    genus: result.genus,
+    confidence: result.confidence,
+    confidenceLevel: result.confidenceLevel,
+    topK: result.topK,
+    explanation: result.explanation,
+  };
+}
+
 export default function Index() {
   const [lang, setLang] = useState<Lang>("th");
   const t = TEXT[lang];
@@ -123,7 +137,7 @@ export default function Index() {
           "ช่วยอธิบายผล Explainable AI โดยเน้นลักษณะของปีกจากภาพต้นฉบับร่วมกับ heatmap ตอบ 3-5 บรรทัด",
         ai_model: aiModel,
         mode: "explanation",
-        prediction: data,
+        prediction: toPredictionPayload(data),
         systemPrompt,
         xai: {
           highlightedRegions: ["กลางปีก", "ขอบปีก", "ลำตัว"],
@@ -211,7 +225,7 @@ export default function Index() {
           "ช่วยอธิบายผล Explainable AI โดยเน้นลักษณะของปีกจากภาพต้นฉบับร่วมกับ heatmap ตอบ 3-5 บรรทัด",
         ai_model: aiModel,
         mode: "explanation",
-        prediction: result,
+        prediction: toPredictionPayload(result),
         systemPrompt,
         xai: {
           highlightedRegions: ["กลางปีก", "ขอบปีก", "ลำตัว"],
@@ -304,8 +318,10 @@ export default function Index() {
           message,
           ai_model: aiModel,
           mode: "vision",
-          prediction: result,
-          history: [...chatMessages, nextUserMessage],
+          prediction: result ? toPredictionPayload(result) : null,
+          // ตัด imageUrl (base64) ออกจาก history ที่ส่งไป backend เพราะ backend ใช้แค่ content
+          // และถ้าส่งไปเต็มๆ หลังสร้างภาพไปหลายรูป payload จะใหญ่เกิน Vercel function limit (FUNCTION_PAYLOAD_TOO_LARGE)
+          history: [...chatMessages, nextUserMessage].map(({ role, content }) => ({ role, content })),
           xai: {
             highlightedRegions: ["wing", "body"],
             confidenceDrivers: [
