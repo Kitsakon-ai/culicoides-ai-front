@@ -238,9 +238,12 @@ async function askClaude(body: ChatBody, prompt: string): Promise<string> {
   // Adaptive thinking previously pushed this call to 27.9s in testing (vs. the
   // ~5-8s Sonnet normally takes) — well past what Vercel's serverless function
   // timeout allows, causing FUNCTION_INVOCATION_TIMEOUT / 504 in production.
+  // (max_tokens is left generous — Vercel's duration limit is the real
+  // constraint here, not output length.)
+  const supportsLargerBudget = body.ai_model.startsWith("claude-opus") || body.ai_model.startsWith("claude-sonnet");
   const stream = client.messages.stream({
     model: body.ai_model,
-    max_tokens: 8192,
+    max_tokens: supportsLargerBudget ? 16000 : 8192,
     messages: [{ role: "user", content }],
   });
 

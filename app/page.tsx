@@ -121,11 +121,21 @@ export default function Index() {
   const [systemPrompt, setSystemPrompt] = useState(DEFAULT_AI_SYSTEM_PROMPT);
   const explanationRequestId = useRef(0);
 
+  // ── Uploaded blob URL cache ──────────────────────────────────
+  // uploadImage() writes to Vercel Blob storage (1GB cap on Hobby plan).
+  // Re-uploading the same original photo / gradcam heatmap on every AI-model
+  // switch or chat message burns through that quota fast — cache the URLs
+  // per image instead and only re-upload when the image actually changes.
+  const [originalImageUrl, setOriginalImageUrl] = useState<string | null>(null);
+  const [heatmapImageUrl, setHeatmapImageUrl] = useState<string | null>(null);
+
   const handleImageSelect = useCallback((file: File, preview: string) => {
     setImageFile(file);
     setImagePreview(preview);
     setResult(null);
     setChatMessages([]);
+    setOriginalImageUrl(null);
+    setHeatmapImageUrl(null);
   }, []);
 
   const handleClearImage = useCallback(() => {
@@ -135,6 +145,8 @@ export default function Index() {
     setChatMessages([]);
     setProvinces([]);
     setActiveNav("upload");
+    setOriginalImageUrl(null);
+    setHeatmapImageUrl(null);
   }, []);
 
   const handleRunInference = useCallback(async () => {
@@ -145,11 +157,15 @@ export default function Index() {
 
       const data = await predictImage(imageFile, mlModel);
 
+      // A fresh inference run means a fresh photo/gradcam pair — always upload
+      // here, but cache the result so later regenerate/chat calls reuse it.
       const originalUpload = await uploadImage(imageFile);
+      setOriginalImageUrl(originalUpload.url);
 
       const heatmapUpload = data.gradcam
         ? await uploadImage(dataUrlToFile(data.gradcam, "gradcam.png"))
         : null;
+      setHeatmapImageUrl(heatmapUpload?.url ?? null);
 
       const explainRes = await chatWithPrediction({
         message:
@@ -242,10 +258,15 @@ export default function Index() {
     try {
       setIsExplaining(true);
 
-      const originalUpload = await uploadImage(imageFile);
-      const heatmapUpload = result.gradcam
-        ? await uploadImage(dataUrlToFile(result.gradcam, "gradcam.png"))
-        : null;
+      // Reuse the blob URLs from the original inference run instead of
+      // re-uploading the same bytes every time the AI model changes.
+      const originalUrl = originalImageUrl ?? (await uploadImage(imageFile)).url;
+      if (!originalImageUrl) setOriginalImageUrl(originalUrl);
+
+      const heatmapUrl = heatmapImageUrl ?? (result.gradcam
+        ? (await uploadImage(dataUrlToFile(result.gradcam, "gradcam.png"))).url
+        : null);
+      if (!heatmapImageUrl && heatmapUrl) setHeatmapImageUrl(heatmapUrl);
 
       const explainRes = await chatWithPrediction({
         message:
@@ -266,8 +287,8 @@ export default function Index() {
               : [],
         },
         images: {
-          original: originalUpload.url,
-          heatmap: heatmapUpload?.url ?? null,
+          original: originalUrl,
+          heatmap: heatmapUrl ?? null,
         },
       });
 
@@ -280,7 +301,7 @@ export default function Index() {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              imageUrl: originalUpload.url,
+              imageUrl: originalUrl,
               aiModel,
               provider: resolveAiProvider(aiModel),
             }),
@@ -333,7 +354,7 @@ export default function Index() {
     } finally {
       if (explanationRequestId.current === requestId) setIsExplaining(false);
     }
-  }, [result, imageFile, aiModel, systemPrompt, imagePreview, lang]);
+  }, [result, imageFile, aiModel, systemPrompt, imagePreview, lang, originalImageUrl, heatmapImageUrl]);
 
   // เปลี่ยนโมเดล AI แล้วให้สร้างคำอธิบายใหม่อัตโนมัติ
   useEffect(() => {
@@ -352,14 +373,19 @@ export default function Index() {
       setIsChatLoading(true);
 
       try {
-        const originalUpload = imageFile
-          ? await uploadImage(imageFile)
-          : null;
+        // Reuse the cached blob URLs from the original inference run instead
+        // of re-uploading the same photo/heatmap on every chat message.
+        let originalUrl = originalImageUrl;
+        if (!originalUrl && imageFile) {
+          originalUrl = (await uploadImage(imageFile)).url;
+          setOriginalImageUrl(originalUrl);
+        }
 
-        const heatmapUpload =
-          result?.gradcam
-            ? await uploadImage(dataUrlToFile(result.gradcam, "gradcam.png"))
-            : null;
+        let heatmapUrl = heatmapImageUrl;
+        if (!heatmapUrl && result?.gradcam) {
+          heatmapUrl = (await uploadImage(dataUrlToFile(result.gradcam, "gradcam.png"))).url;
+          setHeatmapImageUrl(heatmapUrl);
+        }
 
         const res = await chatWithPrediction({
           message,
@@ -381,8 +407,8 @@ export default function Index() {
                 : [],
           },
           images: {
-            original: originalUpload?.url ?? null,
-            heatmap: heatmapUpload?.url ?? null,
+            original: originalUrl ?? null,
+            heatmap: heatmapUrl ?? null,
           },
         });
 
@@ -399,7 +425,7 @@ export default function Index() {
         setIsChatLoading(false);
       }
     },
-    [aiModel, result, chatMessages, imageFile, lang]
+    [aiModel, result, chatMessages, imageFile, lang, originalImageUrl, heatmapImageUrl]
   );
 
   const selectedAiName = AI_MODELS.find((m) => m.id === aiModel)?.name ?? "";
