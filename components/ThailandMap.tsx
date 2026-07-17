@@ -4,8 +4,11 @@ import { useEffect, useState } from "react";
 import { ComposableMap, Geographies, Geography } from "react-simple-maps";
 import { MapPin } from "lucide-react";
 
-const GEO_URL =
-  "https://raw.githubusercontent.com/apisit/thailand.json/master/thailand.json";
+// Served from /public (same-origin) instead of raw.githubusercontent.com — an
+// external runtime fetch to GitHub is fragile: privacy/ad-blocker extensions,
+// corporate/ISP filtering, or GitHub rate-limits can silently block it, leaving
+// the map blank. A local copy always loads.
+const GEO_URL = "/thailand.json";
 
 // react-simple-maps only accepts TopoJSON or a features array — not a raw
 // GeoJSON FeatureCollection — so we fetch and unwrap `.features` ourselves.
@@ -132,9 +135,17 @@ export function ThailandMap({ highlightedProvinces, species, isLoading }: Props)
 
   if (isLoading) {
     return (
-      <div className="card-surface flex flex-col items-center justify-center py-16 gap-3">
-        <div className="h-6 w-6 animate-spin rounded-full border-2 border-accent border-t-transparent" />
-        <p className="text-sm text-muted-foreground">กำลังค้นหาข้อมูลการกระจายตัว...</p>
+      <div className="card-surface flex flex-col items-center justify-center gap-5 py-24">
+        <div className="relative flex h-20 w-20 items-center justify-center">
+          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent/20" />
+          <span className="relative flex h-20 w-20 items-center justify-center rounded-full bg-accent/10">
+            <MapPin className="h-10 w-10 animate-pulse text-accent" />
+          </span>
+        </div>
+        <div className="space-y-1.5 text-center">
+          <p className="text-lg font-semibold text-foreground">กำลังค้นหาข้อมูลการกระจายตัว</p>
+          <p className="text-sm text-muted-foreground">วิเคราะห์จังหวัดที่คาดว่าพบชนิดนี้...</p>
+        </div>
       </div>
     );
   }

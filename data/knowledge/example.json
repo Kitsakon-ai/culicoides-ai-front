@@ -1,0 +1,27 @@
+[
+  {
+    "scientific_name": "Culicoides guttifer",
+    "genus": "Culicoides",
+    "common_name_th": "ริ้น Culicoides guttifer",
+    "summary_th": "ตัวอย่างสรุปสั้น ๆ เกี่ยวกับชนิดนี้ — แก้เป็นข้อมูลจริงจากเอกสารของคุณ",
+    "vector_role": "ตัวอย่างบทบาทพาหะ เช่น พาหะของเชื้อ ... — แก้เป็นข้อมูลจริง",
+    "provinces": [
+      { "province": "เชียงใหม่", "source": "ตัวอย่างแหล่งอ้างอิง (แก้เป็นของจริง)" },
+      { "province": "น่าน", "source": "ตัวอย่างแหล่งอ้างอิง (แก้เป็นของจริง)" }
+    ],
+    "features": [
+      { "name_en": "r-m crossvein", "name_th": "เส้นขวาง r-m", "description": "ตัวอย่างคำอธิบายลักษณะ" },
+      { "name_en": "Wing pattern", "name_th": "ลวดลายปีก", "description": "ตัวอย่างคำอธิบายลักษณะ" }
+    ],
+    "references": [
+      { "citation": "Author A, Author B (2023). Title of the paper. Journal Name.", "doi_or_url": "https://doi.org/xxxxx", "year": 2023 }
+    ],
+    "documents": [
+      {
+        "content": "ย่อหน้าจากงานวิจัย/คำบรรยายยาวเกี่ยวกับ Culicoides guttifer สำหรับให้ระบบค้นแบบ semantic (RAG) — แก้เป็นข้อความจริงจากเปเปอร์ของคุณ ยิ่งย่อยเป็นย่อหน้าสั้น ๆ หลายชิ้นยิ่งค้นแม่น",
+        "source": "ชื่อเปเปอร์/แหล่งที่มา",
+        "year": 2023
+      }
+    ]
+  }
+]

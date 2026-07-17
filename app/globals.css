@@ -205,6 +205,23 @@
   }
 }
 
+/* จุดโหลดแชต — เด้งสูงกว่า animate-bounce ปกติ ให้ดูมีชีวิต */
+@keyframes bounce-high {
+  0%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.5;
+  }
+  50% {
+    transform: translateY(-10px);
+    opacity: 1;
+  }
+}
+
+.animate-bounce-high {
+  animation: bounce-high 0.6s ease-in-out infinite;
+}
+
 @media print {
   @page {
     margin: 14mm;

@@ -1,0 +1,1026 @@
+[
+ {
+  "scientific_name": "Culicoides actoni",
+  "genus": "Culicoides",
+  "provinces": [
+   {
+    "province": "จันทบุรี",
+    "source": "2022-DNA Barcoding of Culicoides Latreille"
+   },
+   {
+    "province": "ตรัง",
+    "source": "2022-Culicoides barcode JME; 2022-DNA Barcoding of Culicoides Latreille"
+   },
+   {
+    "province": "ลำปาง",
+    "source": "2024-blood meals culicoides para&vectors"
+   }
+  ],
+  "references": [
+   {
+    "citation": "Gopurenko et al. (2022). DNA Barcoding of Culicoides Latreille (Diptera: Ceratopogonidae) From Thailand Reveals Taxonomic Inconsistencies and Novel Diversity Among Reported Sequences. Molecular Biology/Genomics",
+    "doi_or_url": null,
+    "year": 2022
+   },
+   {
+    "citation": "Gopurenko et al. (2022). DNA Barcoding of Culicoides Latreille (Diptera: Ceratopogonidae) From Thailand Reveals Taxonomic Inconsistencies and Novel Diversity Among Reported Sequences. Molecular Biology/Genomics",
+    "doi_or_url": null,
+    "year": 2022
+   },
+   {
+    "citation": "Promrangsee et al. (2024). Seasonal dynamics, Leishmania diversity, and nanopore-based metabarcoding of blood meal origins in Culicoides spp. in the newly emerging focus of leishmaniasis in Northern Thailand. Parasites & Vectors",
+    "doi_or_url": "https://doi.org/10.1186/s13071-024-06487-z",
+    "year": 2024
+   }
+  ]
+ },
+ {
+  "scientific_name": "Culicoides arakawae",
+  "genus": "Culicoides",
+  "provinces": [
+   {
+    "province": "กาญจนบุรี",
+    "source": "2024-seasonal abundance culicoides insects"
+   },
+   {
+    "province": "ลำปาง",
+    "source": "2024-blood meals culicoides para&vectors"
+   }
+  ],
+  "references": [
+   {
+    "citation": "Thepparat et al. (2024). Seasonal Abundance and Diversity of Culicoides Biting Midges in Livestock Sheds in Kanchanaburi Province, Thailand. Insects",
+    "doi_or_url": "https://doi.org/10.3390/insects15090701",
+    "year": 2024
+   },
+   {
+    "citation": "Promrangsee et al. (2024). Seasonal dynamics, Leishmania diversity, and nanopore-based metabarcoding of blood meal origins in Culicoides spp. in the newly emerging focus of leishmaniasis in Northern Thailand. Parasites & Vectors",
+    "doi_or_url": "https://doi.org/10.1186/s13071-024-06487-z",
+    "year": 2024
+   }
+  ]
+ },
+ {
+  "scientific_name": "Culicoides asiana",
+  "genus": "Culicoides",
+  "provinces": [
+   {
+    "province": "จันทบุรี",
+    "source": "2022-Culicoides barcode JME"
+   }
+  ],
+  "references": [
+   {
+    "citation": "Gopurenko et al. (2022). DNA Barcoding of Culicoides Latreille (Diptera: Ceratopogonidae) From Thailand Reveals Taxonomic Inconsistencies and Novel Diversity Among Reported Sequences. Molecular Biology/Genomics",
+    "doi_or_url": null,
+    "year": 2022
+   }
+  ]
+ },
+ {
+  "scientific_name": "Culicoides brevipalpis",
+  "genus": "Culicoides",
+  "provinces": [
+   {
+    "province": "จันทบุรี",
+    "source": "2022-Culicoides barcode JME; 2022-DNA Barcoding of Culicoides Latreille"
+   },
+   {
+    "province": "ตรัง",
+    "source": "2022-DNA Barcoding of Culicoides Latreille"
+   },
+   {
+    "province": "ภูเก็ต",
+    "source": "2022-DNA Barcoding of Culicoides Latreille"
+   }
+  ],
+  "references": [
+   {
+    "citation": "Gopurenko et al. (2022). DNA Barcoding of Culicoides Latreille (Diptera: Ceratopogonidae) From Thailand Reveals Taxonomic Inconsistencies and Novel Diversity Among Reported Sequences. Molecular Biology/Genomics",
+    "doi_or_url": null,
+    "year": 2022
+   },
+   {
+    "citation": "Gopurenko et al. (2022). DNA Barcoding of Culicoides Latreille (Diptera: Ceratopogonidae) From Thailand Reveals Taxonomic Inconsistencies and Novel Diversity Among Reported Sequences. Molecular Biology/Genomics",
+    "doi_or_url": null,
+    "year": 2022
+   }
+  ]
+ },
+ {
+  "scientific_name": "Culicoides circumbasalis",
+  "genus": "Culicoides",
+  "provinces": [
+   {
+    "province": "จันทบุรี",
+    "source": "2022-Culicoides barcode JME; 2022-DNA Barcoding of Culicoides Latreille"
+   },
+   {
+    "province": "ตรัง",
+    "source": "2022-DNA Barcoding of Culicoides Latreille"
+   },
+   {
+    "province": "ภูเก็ต",
+    "source": "2022-DNA Barcoding of Culicoides Latreille"
+   }
+  ],
+  "references": [
+   {
+    "citation": "Gopurenko et al. (2022). DNA Barcoding of Culicoides Latreille (Diptera: Ceratopogonidae) From Thailand Reveals Taxonomic Inconsistencies and Novel Diversity Among Reported Sequences. Molecular Biology/Genomics",
+    "doi_or_url": null,
+    "year": 2022
+   },
+   {
+    "citation": "Gopurenko et al. (2022). DNA Barcoding of Culicoides Latreille (Diptera: Ceratopogonidae) From Thailand Reveals Taxonomic Inconsistencies and Novel Diversity Among Reported Sequences. Molecular Biology/Genomics",
+    "doi_or_url": null,
+    "year": 2022
+   }
+  ]
+ },
+ {
+  "scientific_name": "Culicoides cordiger",
+  "genus": "Culicoides",
+  "provinces": [
+   {
+    "province": "จันทบุรี",
+    "source": "2022-Culicoides barcode JME; 2022-DNA Barcoding of Culicoides Latreille"
+   },
+   {
+    "province": "ตรัง",
+    "source": "2022-DNA Barcoding of Culicoides Latreille"
+   },
+   {
+    "province": "ภูเก็ต",
+    "source": "2022-DNA Barcoding of Culicoides Latreille"
+   }
+  ],
+  "references": [
+   {
+    "citation": "Gopurenko et al. (2022). DNA Barcoding of Culicoides Latreille (Diptera: Ceratopogonidae) From Thailand Reveals Taxonomic Inconsistencies and Novel Diversity Among Reported Sequences. Molecular Biology/Genomics",
+    "doi_or_url": null,
+    "year": 2022
+   },
+   {
+    "citation": "Gopurenko et al. (2022). DNA Barcoding of Culicoides Latreille (Diptera: Ceratopogonidae) From Thailand Reveals Taxonomic Inconsistencies and Novel Diversity Among Reported Sequences. Molecular Biology/Genomics",
+    "doi_or_url": null,
+    "year": 2022
+   }
+  ]
+ },
+ {
+  "scientific_name": "Culicoides elbeli",
+  "genus": "Culicoides",
+  "provinces": [
+   {
+    "province": "จันทบุรี",
+    "source": "2022-Culicoides barcode JME; 2022-DNA Barcoding of Culicoides Latreille"
+   },
+   {
+    "province": "ตรัง",
+    "source": "2022-DNA Barcoding of Culicoides Latreille"
+   }
+  ],
+  "references": [
+   {
+    "citation": "Gopurenko et al. (2022). DNA Barcoding of Culicoides Latreille (Diptera: Ceratopogonidae) From Thailand Reveals Taxonomic Inconsistencies and Novel Diversity Among Reported Sequences. Molecular Biology/Genomics",
+    "doi_or_url": null,
+    "year": 2022
+   },
+   {
+    "citation": "Gopurenko et al. (2022). DNA Barcoding of Culicoides Latreille (Diptera: Ceratopogonidae) From Thailand Reveals Taxonomic Inconsistencies and Novel Diversity Among Reported Sequences. Molecular Biology/Genomics",
+    "doi_or_url": null,
+    "year": 2022
+   }
+  ]
+ },
+ {
+  "scientific_name": "Culicoides fordae",
+  "genus": "Culicoides",
+  "provinces": [
+   {
+    "province": "สงขลา",
+    "source": "2022- First co evident tropicalmed-07-00379 3"
+   }
+  ],
+  "references": [
+   {
+    "citation": "Songumpai et al. (2022). First Evidence of Co-Circulation of Emerging Leishmania martiniquensis, Leishmania orientalis, and Crithidia sp. in Culicoides Biting Midges (Diptera: Ceratopogonidae), the Putative Vectors for Autochthonous Transmission in Southern Thailand. Trop. Med. Infect. Dis.",
+    "doi_or_url": "https://doi.org/10.3390/tropicalmed7110379",
+    "year": 2022
+   }
+  ]
+ },
+ {
+  "scientific_name": "Culicoides fulvus",
+  "genus": "Culicoides",
+  "provinces": [
+   {
+    "province": "พัทลุง",
+    "source": "2022-Molecular Identification Host Blood Meals Parasites Insects"
+   },
+   {
+    "province": "ลำปาง",
+    "source": "2024-blood meals culicoides para&vectors"
+   },
+   {
+    "province": "สงขลา",
+    "source": "2022- First co evident tropicalmed-07-00379 3"
+   }
+  ],
+  "references": [
+   {
+    "citation": "Sunantaraporn et al. (2022). Molecular Identification of Host Blood Meals and Detection of Blood Parasites in Culicoides Latreille (Diptera: Ceratopogonidae) Collected from Phatthalung Province, Southern Thailand. Insects",
+    "doi_or_url": "https://doi.org/10.3390/insects13100912",
+    "year": 2022
+   },
+   {
+    "citation": "Promrangsee et al. (2024). Seasonal dynamics, Leishmania diversity, and nanopore-based metabarcoding of blood meal origins in Culicoides spp. in the newly emerging focus of leishmaniasis in Northern Thailand. Parasites & Vectors",
+    "doi_or_url": "https://doi.org/10.1186/s13071-024-06487-z",
+    "year": 2024
+   },
+   {
+    "citation": "Songumpai et al. (2022). First Evidence of Co-Circulation of Emerging Leishmania martiniquensis, Leishmania orientalis, and Crithidia sp. in Culicoides Biting Midges (Diptera: Ceratopogonidae), the Putative Vectors for Autochthonous Transmission in Southern Thailand. Trop. Med. Infect. Dis.",
+    "doi_or_url": "https://doi.org/10.3390/tropicalmed7110379",
+    "year": 2022
+   }
+  ]
+ },
+ {
+  "scientific_name": "Culicoides gemellus",
+  "genus": "Culicoides",
+  "provinces": [
+   {
+    "province": "จันทบุรี",
+    "source": "2022-DNA Barcoding of Culicoides Latreille"
+   },
+   {
+    "province": "ตรัง",
+    "source": "2022-DNA Barcoding of Culicoides Latreille"
+   },
+   {
+    "province": "พัทลุง",
+    "source": "2022-Molecular Identification Host Blood Meals Parasites Insects"
+   },
+   {
+    "province": "ภูเก็ต",
+    "source": "2022-DNA Barcoding of Culicoides Latreille"
+   }
+  ],
+  "references": [
+   {
+    "citation": "Gopurenko et al. (2022). DNA Barcoding of Culicoides Latreille (Diptera: Ceratopogonidae) From Thailand Reveals Taxonomic Inconsistencies and Novel Diversity Among Reported Sequences. Molecular Biology/Genomics",
+    "doi_or_url": null,
+    "year": 2022
+   },
+   {
+    "citation": "Sunantaraporn et al. (2022). Molecular Identification of Host Blood Meals and Detection of Blood Parasites in Culicoides Latreille (Diptera: Ceratopogonidae) Collected from Phatthalung Province, Southern Thailand. Insects",
+    "doi_or_url": "https://doi.org/10.3390/insects13100912",
+    "year": 2022
+   }
+  ]
+ },
+ {
+  "scientific_name": "Culicoides guttifer",
+  "genus": "Culicoides",
+  "provinces": [
+   {
+    "province": "ตรัง",
+    "source": "2022-Culicoides barcode JME"
+   },
+   {
+    "province": "พัทลุง",
+    "source": "2022-Molecular Identification Host Blood Meals Parasites Insects"
+   },
+   {
+    "province": "ลำปาง",
+    "source": "2024-blood meals culicoides para&vectors; 2026- Wolbachia and Cardinium CurrentPara"
+   },
+   {
+    "province": "ลำพูน",
+    "source": "2021-Culicoides PNTD 1"
+   },
+   {
+    "province": "สงขลา",
+    "source": "2026- Wolbachia and Cardinium CurrentPara; 2026-Trypanosomatid detection in Culicoides biting midges"
+   },
+   {
+    "province": "สุราษฎร์ธานี",
+    "source": "2025-DNA barcoding of Culicoides biting midges Para vectors 1"
+   }
+  ],
+  "references": [
+   {
+    "citation": "Gopurenko et al. (2022). DNA Barcoding of Culicoides Latreille (Diptera: Ceratopogonidae) From Thailand Reveals Taxonomic Inconsistencies and Novel Diversity Among Reported Sequences. Molecular Biology/Genomics",
+    "doi_or_url": null,
+    "year": 2022
+   },
+   {
+    "citation": "Sunantaraporn et al. (2022). Molecular Identification of Host Blood Meals and Detection of Blood Parasites in Culicoides Latreille (Diptera: Ceratopogonidae) Collected from Phatthalung Province, Southern Thailand. Insects",
+    "doi_or_url": "https://doi.org/10.3390/insects13100912",
+    "year": 2022
+   },
+   {
+    "citation": "Promrangsee et al. (2024). Seasonal dynamics, Leishmania diversity, and nanopore-based metabarcoding of blood meal origins in Culicoides spp. in the newly emerging focus of leishmaniasis in Northern Thailand. Parasites & Vectors",
+    "doi_or_url": "https://doi.org/10.1186/s13071-024-06487-z",
+    "year": 2024
+   },
+   {
+    "citation": "Sunantaraporn et al. Molecular identification and characterization of Wolbachia and Cardinium with co-occurrence of Leishmania spp. in Culicoides biting midges (Diptera: Ceratopogonidae) from leishmaniasis-affected areas of Thailand",
+    "doi_or_url": null,
+    "year": null
+   },
+   {
+    "citation": "Sunantaraporn S et al. (2021). Culicoides Latreille (Diptera: Ceratopogonidae) as potential vectors for Leishmania martiniquensis and Trypanosoma sp. in northern Thailand. PLOS Neglected Tropical Diseases",
+    "doi_or_url": "https://doi.org/10.1371/journal.pntd.0010014",
+    "year": 2021
+   },
+   {
+    "citation": "Tepboonrueng et al. (2023). Trypanosomatid detection in Culicoides biting midges (Diptera: Ceratopogonidae) from leishmaniasis-endemic Songkhla Province, Southern Thailand: Microscopy and nanopore metabarcoding reveal parasite diversity",
+    "doi_or_url": null,
+    "year": 2023
+   },
+   {
+    "citation": "Tepboonrueng et al. (2025). DNA barcoding of Culicoides biting midges (Diptera: Ceratopogonidae) and detection of Leishmania and other trypanosomatids in southern Thailand. Parasites & Vectors",
+    "doi_or_url": "https://doi.org/10.1186/s13071-025-06812-0",
+    "year": 2025
+   }
+  ]
+ },
+ {
+  "scientific_name": "Culicoides huffi",
+  "genus": "Culicoides",
+  "provinces": [
+   {
+    "province": "จันทบุรี",
+    "source": "2022-Culicoides barcode JME; 2022-DNA Barcoding of Culicoides Latreille"
+   },
+   {
+    "province": "ตรัง",
+    "source": "2022-DNA Barcoding of Culicoides Latreille"
+   },
+   {
+    "province": "นครศรีธรรมราช",
+    "source": "2025-DNA barcoding of Culicoides biting midges Para vectors 1"
+   },
+   {
+    "province": "ลำปาง",
+    "source": "2026- Wolbachia and Cardinium CurrentPara"
+   },
+   {
+    "province": "ลำพูน",
+    "source": "2021-Culicoides PNTD 1"
+   },
+   {
+    "province": "สงขลา",
+    "source": "2022- First co evident tropicalmed-07-00379 3; 2026-Trypanosomatid detection in Culicoides biting midges"
+   },
+   {
+    "province": "สุราษฎร์ธานี",
+    "source": "2025-DNA barcoding of Culicoides biting midges Para vectors 1"
+   }
+  ],
+  "references": [
+   {
+    "citation": "Gopurenko et al. (2022). DNA Barcoding of Culicoides Latreille (Diptera: Ceratopogonidae) From Thailand Reveals Taxonomic Inconsistencies and Novel Diversity Among Reported Sequences. Molecular Biology/Genomics",
+    "doi_or_url": null,
+    "year": 2022
+   },
+   {
+    "citation": "Gopurenko et al. (2022). DNA Barcoding of Culicoides Latreille (Diptera: Ceratopogonidae) From Thailand Reveals Taxonomic Inconsistencies and Novel Diversity Among Reported Sequences. Molecular Biology/Genomics",
+    "doi_or_url": null,
+    "year": 2022
+   },
+   {
+    "citation": "Tepboonrueng et al. (2025). DNA barcoding of Culicoides biting midges (Diptera: Ceratopogonidae) and detection of Leishmania and other trypanosomatids in southern Thailand. Parasites & Vectors",
+    "doi_or_url": "https://doi.org/10.1186/s13071-025-06812-0",
+    "year": 2025
+   },
+   {
+    "citation": "Sunantaraporn et al. Molecular identification and characterization of Wolbachia and Cardinium with co-occurrence of Leishmania spp. in Culicoides biting midges (Diptera: Ceratopogonidae) from leishmaniasis-affected areas of Thailand",
+    "doi_or_url": null,
+    "year": null
+   },
+   {
+    "citation": "Sunantaraporn S et al. (2021). Culicoides Latreille (Diptera: Ceratopogonidae) as potential vectors for Leishmania martiniquensis and Trypanosoma sp. in northern Thailand. PLOS Neglected Tropical Diseases",
+    "doi_or_url": "https://doi.org/10.1371/journal.pntd.0010014",
+    "year": 2021
+   },
+   {
+    "citation": "Songumpai et al. (2022). First Evidence of Co-Circulation of Emerging Leishmania martiniquensis, Leishmania orientalis, and Crithidia sp. in Culicoides Biting Midges (Diptera: Ceratopogonidae), the Putative Vectors for Autochthonous Transmission in Southern Thailand. Trop. Med. Infect. Dis.",
+    "doi_or_url": "https://doi.org/10.3390/tropicalmed7110379",
+    "year": 2022
+   },
+   {
+    "citation": "Tepboonrueng et al. (2023). Trypanosomatid detection in Culicoides biting midges (Diptera: Ceratopogonidae) from leishmaniasis-endemic Songkhla Province, Southern Thailand: Microscopy and nanopore metabarcoding reveal parasite diversity",
+    "doi_or_url": null,
+    "year": 2023
+   }
+  ]
+ },
+ {
+  "scientific_name": "Culicoides imicola",
+  "genus": "Culicoides",
+  "provinces": [
+   {
+    "province": "กาญจนบุรี",
+    "source": "2024-seasonal abundance culicoides insects"
+   }
+  ],
+  "references": [
+   {
+    "citation": "Thepparat et al. (2024). Seasonal Abundance and Diversity of Culicoides Biting Midges in Livestock Sheds in Kanchanaburi Province, Thailand. Insects",
+    "doi_or_url": "https://doi.org/10.3390/insects15090701",
+    "year": 2024
+   }
+  ]
+ },
+ {
+  "scientific_name": "Culicoides innoxius",
+  "genus": "Culicoides",
+  "provinces": [
+   {
+    "province": "พัทลุง",
+    "source": "2022-Molecular Identification Host Blood Meals Parasites Insects"
+   },
+   {
+    "province": "ลำปาง",
+    "source": "2024-blood meals culicoides para&vectors"
+   }
+  ],
+  "references": [
+   {
+    "citation": "Sunantaraporn et al. (2022). Molecular Identification of Host Blood Meals and Detection of Blood Parasites in Culicoides Latreille (Diptera: Ceratopogonidae) Collected from Phatthalung Province, Southern Thailand. Insects",
+    "doi_or_url": "https://doi.org/10.3390/insects13100912",
+    "year": 2022
+   },
+   {
+    "citation": "Promrangsee et al. (2024). Seasonal dynamics, Leishmania diversity, and nanopore-based metabarcoding of blood meal origins in Culicoides spp. in the newly emerging focus of leishmaniasis in Northern Thailand. Parasites & Vectors",
+    "doi_or_url": "https://doi.org/10.1186/s13071-024-06487-z",
+    "year": 2024
+   }
+  ]
+ },
+ {
+  "scientific_name": "Culicoides insignipennis",
+  "genus": "Culicoides",
+  "provinces": [
+   {
+    "province": "จันทบุรี",
+    "source": "2022-DNA Barcoding of Culicoides Latreille"
+   },
+   {
+    "province": "ตรัง",
+    "source": "2022-DNA Barcoding of Culicoides Latreille"
+   },
+   {
+    "province": "ภูเก็ต",
+    "source": "2022-DNA Barcoding of Culicoides Latreille"
+   }
+  ],
+  "references": [
+   {
+    "citation": "Gopurenko et al. (2022). DNA Barcoding of Culicoides Latreille (Diptera: Ceratopogonidae) From Thailand Reveals Taxonomic Inconsistencies and Novel Diversity Among Reported Sequences. Molecular Biology/Genomics",
+    "doi_or_url": null,
+    "year": 2022
+   }
+  ]
+ },
+ {
+  "scientific_name": "Culicoides jacobsoni",
+  "genus": "Culicoides",
+  "provinces": [
+   {
+    "province": "จันทบุรี",
+    "source": "2022-DNA Barcoding of Culicoides Latreille"
+   },
+   {
+    "province": "ตรัง",
+    "source": "2022-Culicoides barcode JME; 2022-DNA Barcoding of Culicoides Latreille"
+   },
+   {
+    "province": "พัทลุง",
+    "source": "2022-Molecular Identification Host Blood Meals Parasites Insects"
+   }
+  ],
+  "references": [
+   {
+    "citation": "Gopurenko et al. (2022). DNA Barcoding of Culicoides Latreille (Diptera: Ceratopogonidae) From Thailand Reveals Taxonomic Inconsistencies and Novel Diversity Among Reported Sequences. Molecular Biology/Genomics",
+    "doi_or_url": null,
+    "year": 2022
+   },
+   {
+    "citation": "Gopurenko et al. (2022). DNA Barcoding of Culicoides Latreille (Diptera: Ceratopogonidae) From Thailand Reveals Taxonomic Inconsistencies and Novel Diversity Among Reported Sequences. Molecular Biology/Genomics",
+    "doi_or_url": null,
+    "year": 2022
+   },
+   {
+    "citation": "Sunantaraporn et al. (2022). Molecular Identification of Host Blood Meals and Detection of Blood Parasites in Culicoides Latreille (Diptera: Ceratopogonidae) Collected from Phatthalung Province, Southern Thailand. Insects",
+    "doi_or_url": "https://doi.org/10.3390/insects13100912",
+    "year": 2022
+   }
+  ]
+ },
+ {
+  "scientific_name": "Culicoides mahasarakhamense",
+  "genus": "Culicoides",
+  "provinces": [
+   {
+    "province": "เชียงราย",
+    "source": "2026- Wolbachia and Cardinium CurrentPara"
+   },
+   {
+    "province": "นครศรีธรรมราช",
+    "source": "2025-DNA barcoding of Culicoides biting midges Para vectors 1"
+   },
+   {
+    "province": "ลำปาง",
+    "source": "2024-blood meals culicoides para&vectors"
+   },
+   {
+    "province": "ลำพูน",
+    "source": "2021-Culicoides PNTD 1"
+   },
+   {
+    "province": "สงขลา",
+    "source": "2022- First co evident tropicalmed-07-00379 3; 2026- Wolbachia and Cardinium CurrentPara; 2026-Trypanosomatid detection in Culicoides biting midges"
+   }
+  ],
+  "references": [
+   {
+    "citation": "Sunantaraporn et al. Molecular identification and characterization of Wolbachia and Cardinium with co-occurrence of Leishmania spp. in Culicoides biting midges (Diptera: Ceratopogonidae) from leishmaniasis-affected areas of Thailand",
+    "doi_or_url": null,
+    "year": null
+   },
+   {
+    "citation": "Tepboonrueng et al. (2025). DNA barcoding of Culicoides biting midges (Diptera: Ceratopogonidae) and detection of Leishmania and other trypanosomatids in southern Thailand. Parasites & Vectors",
+    "doi_or_url": "https://doi.org/10.1186/s13071-025-06812-0",
+    "year": 2025
+   },
+   {
+    "citation": "Promrangsee et al. (2024). Seasonal dynamics, Leishmania diversity, and nanopore-based metabarcoding of blood meal origins in Culicoides spp. in the newly emerging focus of leishmaniasis in Northern Thailand. Parasites & Vectors",
+    "doi_or_url": "https://doi.org/10.1186/s13071-024-06487-z",
+    "year": 2024
+   },
+   {
+    "citation": "Sunantaraporn S et al. (2021). Culicoides Latreille (Diptera: Ceratopogonidae) as potential vectors for Leishmania martiniquensis and Trypanosoma sp. in northern Thailand. PLOS Neglected Tropical Diseases",
+    "doi_or_url": "https://doi.org/10.1371/journal.pntd.0010014",
+    "year": 2021
+   },
+   {
+    "citation": "Songumpai et al. (2022). First Evidence of Co-Circulation of Emerging Leishmania martiniquensis, Leishmania orientalis, and Crithidia sp. in Culicoides Biting Midges (Diptera: Ceratopogonidae), the Putative Vectors for Autochthonous Transmission in Southern Thailand. Trop. Med. Infect. Dis.",
+    "doi_or_url": "https://doi.org/10.3390/tropicalmed7110379",
+    "year": 2022
+   },
+   {
+    "citation": "Tepboonrueng et al. (2023). Trypanosomatid detection in Culicoides biting midges (Diptera: Ceratopogonidae) from leishmaniasis-endemic Songkhla Province, Southern Thailand: Microscopy and nanopore metabarcoding reveal parasite diversity",
+    "doi_or_url": null,
+    "year": 2023
+   }
+  ]
+ },
+ {
+  "scientific_name": "Culicoides menglaensis",
+  "genus": "Culicoides",
+  "provinces": [
+   {
+    "province": "จันทบุรี",
+    "source": "2022-Culicoides barcode JME; 2022-DNA Barcoding of Culicoides Latreille"
+   },
+   {
+    "province": "ตรัง",
+    "source": "2022-DNA Barcoding of Culicoides Latreille"
+   }
+  ],
+  "references": [
+   {
+    "citation": "Gopurenko et al. (2022). DNA Barcoding of Culicoides Latreille (Diptera: Ceratopogonidae) From Thailand Reveals Taxonomic Inconsistencies and Novel Diversity Among Reported Sequences. Molecular Biology/Genomics",
+    "doi_or_url": null,
+    "year": 2022
+   },
+   {
+    "citation": "Gopurenko et al. (2022). DNA Barcoding of Culicoides Latreille (Diptera: Ceratopogonidae) From Thailand Reveals Taxonomic Inconsistencies and Novel Diversity Among Reported Sequences. Molecular Biology/Genomics",
+    "doi_or_url": null,
+    "year": 2022
+   }
+  ]
+ },
+ {
+  "scientific_name": "Culicoides nigripes",
+  "genus": "Culicoides",
+  "provinces": [
+   {
+    "province": "นครศรีธรรมราช",
+    "source": "2025-DNA barcoding of Culicoides biting midges Para vectors 1"
+   }
+  ],
+  "references": [
+   {
+    "citation": "Tepboonrueng et al. (2025). DNA barcoding of Culicoides biting midges (Diptera: Ceratopogonidae) and detection of Leishmania and other trypanosomatids in southern Thailand. Parasites & Vectors",
+    "doi_or_url": "https://doi.org/10.1186/s13071-025-06812-0",
+    "year": 2025
+   }
+  ]
+ },
+ {
+  "scientific_name": "Culicoides niphanae",
+  "genus": "Culicoides",
+  "provinces": [
+   {
+    "province": "จันทบุรี",
+    "source": "2022-Culicoides barcode JME; 2022-DNA Barcoding of Culicoides Latreille"
+   },
+   {
+    "province": "ตรัง",
+    "source": "2022-DNA Barcoding of Culicoides Latreille"
+   },
+   {
+    "province": "ภูเก็ต",
+    "source": "2022-DNA Barcoding of Culicoides Latreille"
+   }
+  ],
+  "references": [
+   {
+    "citation": "Gopurenko et al. (2022). DNA Barcoding of Culicoides Latreille (Diptera: Ceratopogonidae) From Thailand Reveals Taxonomic Inconsistencies and Novel Diversity Among Reported Sequences. Molecular Biology/Genomics",
+    "doi_or_url": null,
+    "year": 2022
+   },
+   {
+    "citation": "Gopurenko et al. (2022). DNA Barcoding of Culicoides Latreille (Diptera: Ceratopogonidae) From Thailand Reveals Taxonomic Inconsistencies and Novel Diversity Among Reported Sequences. Molecular Biology/Genomics",
+    "doi_or_url": null,
+    "year": 2022
+   }
+  ]
+ },
+ {
+  "scientific_name": "Culicoides orientalis",
+  "genus": "Culicoides",
+  "provinces": [
+   {
+    "province": "เชียงราย",
+    "source": "2026- Wolbachia and Cardinium CurrentPara"
+   },
+   {
+    "province": "พัทลุง",
+    "source": "2022-Molecular Identification Host Blood Meals Parasites Insects"
+   },
+   {
+    "province": "ลำปาง",
+    "source": "2024-blood meals culicoides para&vectors"
+   },
+   {
+    "province": "สงขลา",
+    "source": "2022- First co evident tropicalmed-07-00379 3; 2026- Wolbachia and Cardinium CurrentPara; 2026-Trypanosomatid detection in Culicoides biting midges"
+   },
+   {
+    "province": "นครศรีธรรมราช",
+    "source": "2025-DNA barcoding of Culicoides biting midges Para vectors 1"
+   }
+  ],
+  "references": [
+   {
+    "citation": "Sunantaraporn et al. Molecular identification and characterization of Wolbachia and Cardinium with co-occurrence of Leishmania spp. in Culicoides biting midges (Diptera: Ceratopogonidae) from leishmaniasis-affected areas of Thailand",
+    "doi_or_url": null,
+    "year": null
+   },
+   {
+    "citation": "Sunantaraporn et al. (2022). Molecular Identification of Host Blood Meals and Detection of Blood Parasites in Culicoides Latreille (Diptera: Ceratopogonidae) Collected from Phatthalung Province, Southern Thailand. Insects",
+    "doi_or_url": "https://doi.org/10.3390/insects13100912",
+    "year": 2022
+   },
+   {
+    "citation": "Promrangsee et al. (2024). Seasonal dynamics, Leishmania diversity, and nanopore-based metabarcoding of blood meal origins in Culicoides spp. in the newly emerging focus of leishmaniasis in Northern Thailand. Parasites & Vectors",
+    "doi_or_url": "https://doi.org/10.1186/s13071-024-06487-z",
+    "year": 2024
+   },
+   {
+    "citation": "Songumpai et al. (2022). First Evidence of Co-Circulation of Emerging Leishmania martiniquensis, Leishmania orientalis, and Crithidia sp. in Culicoides Biting Midges (Diptera: Ceratopogonidae), the Putative Vectors for Autochthonous Transmission in Southern Thailand. Trop. Med. Infect. Dis.",
+    "doi_or_url": "https://doi.org/10.3390/tropicalmed7110379",
+    "year": 2022
+   },
+   {
+    "citation": "Tepboonrueng et al. (2023). Trypanosomatid detection in Culicoides biting midges (Diptera: Ceratopogonidae) from leishmaniasis-endemic Songkhla Province, Southern Thailand: Microscopy and nanopore metabarcoding reveal parasite diversity",
+    "doi_or_url": null,
+    "year": 2023
+   },
+   {
+    "citation": "Tepboonrueng et al. (2025). DNA barcoding of Culicoides biting midges (Diptera: Ceratopogonidae) and detection of Leishmania and other trypanosomatids in southern Thailand. Parasites & Vectors",
+    "doi_or_url": "https://doi.org/10.1186/s13071-025-06812-0",
+    "year": 2025
+   }
+  ]
+ },
+ {
+  "scientific_name": "Culicoides oxystoma",
+  "genus": "Culicoides",
+  "provinces": [
+   {
+    "province": "กาญจนบุรี",
+    "source": "2024-seasonal abundance culicoides insects"
+   },
+   {
+    "province": "นครศรีธรรมราช",
+    "source": "2025-DNA barcoding of Culicoides biting midges Para vectors 1"
+   },
+   {
+    "province": "พัทลุง",
+    "source": "2022-Molecular Identification Host Blood Meals Parasites Insects"
+   },
+   {
+    "province": "ลำปาง",
+    "source": "2024-blood meals culicoides para&vectors; 2026- Wolbachia and Cardinium CurrentPara"
+   },
+   {
+    "province": "สงขลา",
+    "source": "2022- First co evident tropicalmed-07-00379 3"
+   }
+  ],
+  "references": [
+   {
+    "citation": "Thepparat et al. (2024). Seasonal Abundance and Diversity of Culicoides Biting Midges in Livestock Sheds in Kanchanaburi Province, Thailand. Insects",
+    "doi_or_url": "https://doi.org/10.3390/insects15090701",
+    "year": 2024
+   },
+   {
+    "citation": "Tepboonrueng et al. (2025). DNA barcoding of Culicoides biting midges (Diptera: Ceratopogonidae) and detection of Leishmania and other trypanosomatids in southern Thailand. Parasites & Vectors",
+    "doi_or_url": "https://doi.org/10.1186/s13071-025-06812-0",
+    "year": 2025
+   },
+   {
+    "citation": "Sunantaraporn et al. (2022). Molecular Identification of Host Blood Meals and Detection of Blood Parasites in Culicoides Latreille (Diptera: Ceratopogonidae) Collected from Phatthalung Province, Southern Thailand. Insects",
+    "doi_or_url": "https://doi.org/10.3390/insects13100912",
+    "year": 2022
+   },
+   {
+    "citation": "Promrangsee et al. (2024). Seasonal dynamics, Leishmania diversity, and nanopore-based metabarcoding of blood meal origins in Culicoides spp. in the newly emerging focus of leishmaniasis in Northern Thailand. Parasites & Vectors",
+    "doi_or_url": "https://doi.org/10.1186/s13071-024-06487-z",
+    "year": 2024
+   },
+   {
+    "citation": "Sunantaraporn et al. Molecular identification and characterization of Wolbachia and Cardinium with co-occurrence of Leishmania spp. in Culicoides biting midges (Diptera: Ceratopogonidae) from leishmaniasis-affected areas of Thailand",
+    "doi_or_url": null,
+    "year": null
+   },
+   {
+    "citation": "Songumpai et al. (2022). First Evidence of Co-Circulation of Emerging Leishmania martiniquensis, Leishmania orientalis, and Crithidia sp. in Culicoides Biting Midges (Diptera: Ceratopogonidae), the Putative Vectors for Autochthonous Transmission in Southern Thailand. Trop. Med. Infect. Dis.",
+    "doi_or_url": "https://doi.org/10.3390/tropicalmed7110379",
+    "year": 2022
+   }
+  ]
+ },
+ {
+  "scientific_name": "Culicoides palawanensis",
+  "genus": "Culicoides",
+  "provinces": [
+   {
+    "province": "จันทบุรี",
+    "source": "2022-DNA Barcoding of Culicoides Latreille"
+   },
+   {
+    "province": "ตรัง",
+    "source": "2022-DNA Barcoding of Culicoides Latreille"
+   },
+   {
+    "province": "ภูเก็ต",
+    "source": "2022-Culicoides barcode JME"
+   }
+  ],
+  "references": [
+   {
+    "citation": "Gopurenko et al. (2022). DNA Barcoding of Culicoides Latreille (Diptera: Ceratopogonidae) From Thailand Reveals Taxonomic Inconsistencies and Novel Diversity Among Reported Sequences. Molecular Biology/Genomics",
+    "doi_or_url": null,
+    "year": 2022
+   },
+   {
+    "citation": "Gopurenko et al. (2022). DNA Barcoding of Culicoides Latreille (Diptera: Ceratopogonidae) From Thailand Reveals Taxonomic Inconsistencies and Novel Diversity Among Reported Sequences. Molecular Biology/Genomics",
+    "doi_or_url": null,
+    "year": 2022
+   }
+  ]
+ },
+ {
+  "scientific_name": "Culicoides palpifer",
+  "genus": "Culicoides",
+  "provinces": [
+   {
+    "province": "จันทบุรี",
+    "source": "2022-DNA Barcoding of Culicoides Latreille"
+   },
+   {
+    "province": "ตรัง",
+    "source": "2022-Culicoides barcode JME; 2022-DNA Barcoding of Culicoides Latreille"
+   }
+  ],
+  "references": [
+   {
+    "citation": "Gopurenko et al. (2022). DNA Barcoding of Culicoides Latreille (Diptera: Ceratopogonidae) From Thailand Reveals Taxonomic Inconsistencies and Novel Diversity Among Reported Sequences. Molecular Biology/Genomics",
+    "doi_or_url": null,
+    "year": 2022
+   },
+   {
+    "citation": "Gopurenko et al. (2022). DNA Barcoding of Culicoides Latreille (Diptera: Ceratopogonidae) From Thailand Reveals Taxonomic Inconsistencies and Novel Diversity Among Reported Sequences. Molecular Biology/Genomics",
+    "doi_or_url": null,
+    "year": 2022
+   }
+  ]
+ },
+ {
+  "scientific_name": "Culicoides parahumeralis",
+  "genus": "Culicoides",
+  "provinces": [
+   {
+    "province": "จันทบุรี",
+    "source": "2022-DNA Barcoding of Culicoides Latreille"
+   },
+   {
+    "province": "ตรัง",
+    "source": "2022-Culicoides barcode JME; 2022-DNA Barcoding of Culicoides Latreille"
+   },
+   {
+    "province": "ภูเก็ต",
+    "source": "2022-DNA Barcoding of Culicoides Latreille"
+   }
+  ],
+  "references": [
+   {
+    "citation": "Gopurenko et al. (2022). DNA Barcoding of Culicoides Latreille (Diptera: Ceratopogonidae) From Thailand Reveals Taxonomic Inconsistencies and Novel Diversity Among Reported Sequences. Molecular Biology/Genomics",
+    "doi_or_url": null,
+    "year": 2022
+   },
+   {
+    "citation": "Gopurenko et al. (2022). DNA Barcoding of Culicoides Latreille (Diptera: Ceratopogonidae) From Thailand Reveals Taxonomic Inconsistencies and Novel Diversity Among Reported Sequences. Molecular Biology/Genomics",
+    "doi_or_url": null,
+    "year": 2022
+   }
+  ]
+ },
+ {
+  "scientific_name": "Culicoides peregrinus",
+  "genus": "Culicoides",
+  "provinces": [
+   {
+    "province": "กาญจนบุรี",
+    "source": "2024-seasonal abundance culicoides insects"
+   },
+   {
+    "province": "นครศรีธรรมราช",
+    "source": "2025-DNA barcoding of Culicoides biting midges Para vectors 1"
+   },
+   {
+    "province": "พัทลุง",
+    "source": "2022-Molecular Identification Host Blood Meals Parasites Insects"
+   },
+   {
+    "province": "ลำปาง",
+    "source": "2026- Wolbachia and Cardinium CurrentPara"
+   },
+   {
+    "province": "สงขลา",
+    "source": "2022- First co evident tropicalmed-07-00379 3"
+   }
+  ],
+  "references": [
+   {
+    "citation": "Thepparat et al. (2024). Seasonal Abundance and Diversity of Culicoides Biting Midges in Livestock Sheds in Kanchanaburi Province, Thailand. Insects",
+    "doi_or_url": "https://doi.org/10.3390/insects15090701",
+    "year": 2024
+   },
+   {
+    "citation": "Tepboonrueng et al. (2025). DNA barcoding of Culicoides biting midges (Diptera: Ceratopogonidae) and detection of Leishmania and other trypanosomatids in southern Thailand. Parasites & Vectors",
+    "doi_or_url": "https://doi.org/10.1186/s13071-025-06812-0",
+    "year": 2025
+   },
+   {
+    "citation": "Sunantaraporn et al. (2022). Molecular Identification of Host Blood Meals and Detection of Blood Parasites in Culicoides Latreille (Diptera: Ceratopogonidae) Collected from Phatthalung Province, Southern Thailand. Insects",
+    "doi_or_url": "https://doi.org/10.3390/insects13100912",
+    "year": 2022
+   },
+   {
+    "citation": "Sunantaraporn et al. Molecular identification and characterization of Wolbachia and Cardinium with co-occurrence of Leishmania spp. in Culicoides biting midges (Diptera: Ceratopogonidae) from leishmaniasis-affected areas of Thailand",
+    "doi_or_url": null,
+    "year": null
+   },
+   {
+    "citation": "Songumpai et al. (2022). First Evidence of Co-Circulation of Emerging Leishmania martiniquensis, Leishmania orientalis, and Crithidia sp. in Culicoides Biting Midges (Diptera: Ceratopogonidae), the Putative Vectors for Autochthonous Transmission in Southern Thailand. Trop. Med. Infect. Dis.",
+    "doi_or_url": "https://doi.org/10.3390/tropicalmed7110379",
+    "year": 2022
+   }
+  ]
+ },
+ {
+  "scientific_name": "Culicoides shortti",
+  "genus": "Culicoides",
+  "provinces": [
+   {
+    "province": "พัทลุง",
+    "source": "2022-Molecular Identification Host Blood Meals Parasites Insects"
+   },
+   {
+    "province": "ลำปาง",
+    "source": "2024-blood meals culicoides para&vectors; 2026- Wolbachia and Cardinium CurrentPara"
+   }
+  ],
+  "references": [
+   {
+    "citation": "Sunantaraporn et al. (2022). Molecular Identification of Host Blood Meals and Detection of Blood Parasites in Culicoides Latreille (Diptera: Ceratopogonidae) Collected from Phatthalung Province, Southern Thailand. Insects",
+    "doi_or_url": "https://doi.org/10.3390/insects13100912",
+    "year": 2022
+   },
+   {
+    "citation": "Promrangsee et al. (2024). Seasonal dynamics, Leishmania diversity, and nanopore-based metabarcoding of blood meal origins in Culicoides spp. in the newly emerging focus of leishmaniasis in Northern Thailand. Parasites & Vectors",
+    "doi_or_url": "https://doi.org/10.1186/s13071-024-06487-z",
+    "year": 2024
+   },
+   {
+    "citation": "Sunantaraporn et al. Molecular identification and characterization of Wolbachia and Cardinium with co-occurrence of Leishmania spp. in Culicoides biting midges (Diptera: Ceratopogonidae) from leishmaniasis-affected areas of Thailand",
+    "doi_or_url": null,
+    "year": null
+   }
+  ]
+ },
+ {
+  "scientific_name": "Culicoides sumatrae",
+  "genus": "Culicoides",
+  "provinces": [
+   {
+    "province": "จันทบุรี",
+    "source": "2022-DNA Barcoding of Culicoides Latreille"
+   },
+   {
+    "province": "ตรัง",
+    "source": "2022-DNA Barcoding of Culicoides Latreille"
+   },
+   {
+    "province": "ภูเก็ต",
+    "source": "2022-Culicoides barcode JME; 2022-DNA Barcoding of Culicoides Latreille"
+   },
+   {
+    "province": "ลำปาง",
+    "source": "2024-blood meals culicoides para&vectors"
+   }
+  ],
+  "references": [
+   {
+    "citation": "Gopurenko et al. (2022). DNA Barcoding of Culicoides Latreille (Diptera: Ceratopogonidae) From Thailand Reveals Taxonomic Inconsistencies and Novel Diversity Among Reported Sequences. Molecular Biology/Genomics",
+    "doi_or_url": null,
+    "year": 2022
+   },
+   {
+    "citation": "Gopurenko et al. (2022). DNA Barcoding of Culicoides Latreille (Diptera: Ceratopogonidae) From Thailand Reveals Taxonomic Inconsistencies and Novel Diversity Among Reported Sequences. Molecular Biology/Genomics",
+    "doi_or_url": null,
+    "year": 2022
+   },
+   {
+    "citation": "Promrangsee et al. (2024). Seasonal dynamics, Leishmania diversity, and nanopore-based metabarcoding of blood meal origins in Culicoides spp. in the newly emerging focus of leishmaniasis in Northern Thailand. Parasites & Vectors",
+    "doi_or_url": "https://doi.org/10.1186/s13071-024-06487-z",
+    "year": 2024
+   }
+  ]
+ },
+ {
+  "scientific_name": "Culicoides tainanus",
+  "genus": "Culicoides",
+  "provinces": [
+   {
+    "province": "เชียงราย",
+    "source": "2026- Wolbachia and Cardinium CurrentPara"
+   }
+  ],
+  "references": [
+   {
+    "citation": "Sunantaraporn et al. Molecular identification and characterization of Wolbachia and Cardinium with co-occurrence of Leishmania spp. in Culicoides biting midges (Diptera: Ceratopogonidae) from leishmaniasis-affected areas of Thailand",
+    "doi_or_url": null,
+    "year": null
+   }
+  ]
+ },
+ {
+  "scientific_name": "Culicoides tamada",
+  "genus": "Culicoides",
+  "provinces": [
+   {
+    "province": "จันทบุรี",
+    "source": "2022-DNA Barcoding of Culicoides Latreille"
+   },
+   {
+    "province": "ตรัง",
+    "source": "2022-Culicoides barcode JME; 2022-DNA Barcoding of Culicoides Latreille"
+   },
+   {
+    "province": "ภูเก็ต",
+    "source": "2022-DNA Barcoding of Culicoides Latreille"
+   }
+  ],
+  "references": [
+   {
+    "citation": "Gopurenko et al. (2022). DNA Barcoding of Culicoides Latreille (Diptera: Ceratopogonidae) From Thailand Reveals Taxonomic Inconsistencies and Novel Diversity Among Reported Sequences. Molecular Biology/Genomics",
+    "doi_or_url": null,
+    "year": 2022
+   },
+   {
+    "citation": "Gopurenko et al. (2022). DNA Barcoding of Culicoides Latreille (Diptera: Ceratopogonidae) From Thailand Reveals Taxonomic Inconsistencies and Novel Diversity Among Reported Sequences. Molecular Biology/Genomics",
+    "doi_or_url": null,
+    "year": 2022
+   }
+  ]
+ }
+]

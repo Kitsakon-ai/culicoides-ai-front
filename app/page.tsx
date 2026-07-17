@@ -1,22 +1,14 @@
 "use client";
 
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState } from "react";
 import {
   Play,
   Loader2,
   Upload,
   BarChart3,
-  MessageSquare,
   Settings2,
   Bug,
   ChevronRight,
-  Microscope,
-  Map,
-  Layers,
-  Printer,
-  CheckCircle,
-  AlertTriangle,
-  XCircle,
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 
@@ -26,9 +18,6 @@ import {
   AI_MODELS,
   AI_PROVIDER_ORDER,
   AI_PROVIDER_LABEL,
-  type PredictionResult,
-  type ChatMessage,
-  type HistoryItem,
 } from "@/lib/types";
 import {
   Select,
@@ -42,430 +31,36 @@ import {
 
 import { LanguageToggle } from "@/components/LanguageToggle";
 import { ModelSelector } from "@/components/ModelSelector";
-import { ImageUpload } from "@/components/ImageUpload";
-import { GradCamOverlay } from "@/components/GradCamOverlay";
-import { GradCamCompare } from "@/components/GradCamCompare";
-import { ResultsPanel } from "@/components/ResultsPanel";
-import { TaxonomyTree } from "@/components/TaxonomyTree";
-import { ExplanationBlock } from "@/components/ExplanationBlock";
-import { ChatPanel } from "@/components/ChatPanel";
-import { InspectorPanel } from "@/components/InspectorPanel";
-import { HistoryPanel } from "@/components/HistoryPanel";
-import { ThailandMap } from "@/components/ThailandMap";
-import { EnsembleChart } from "@/components/EnsembleChart";
-import { ModelLatencyTable } from "@/components/ModelLatencyTable";
-
-import {
-  predictImage,
-  chatWithPrediction,
-  getHistory,
-  uploadImage,
-  dataUrlToFile,
-  getProvinces,
-  resolveAiProvider,
-} from "@/lib/api";
-import { drawAnnotatedWing } from "@/lib/annotate";
-import { DEFAULT_AI_SYSTEM_PROMPT } from "@/lib/prompts";
-import { toast } from "@/components/ui/sonner";
-
-type NavSection = "upload" | "results" | "chat" | "inspector";
-
-// ตัด field รูปภาพ (gradcam/annotatedImage/heatmap เป็น base64 ขนาดใหญ่) ออกก่อนส่งไป /api/chat
-// เพราะ backend ใช้แค่ species/genus/confidence/topK/explanation และการส่ง base64 ซ้ำทุกครั้ง
-// ทำให้ payload ใหญ่เกิน Vercel function limit ได้ (FUNCTION_PAYLOAD_TOO_LARGE)
-function toPredictionPayload(result: PredictionResult) {
-  return {
-    species: result.species,
-    genus: result.genus,
-    confidence: result.confidence,
-    confidenceLevel: result.confidenceLevel,
-    topK: result.topK,
-    explanation: result.explanation,
-  };
-}
-
-// ตรวจจับ error โควต้า/usage limit ของ provider ต่าง ๆ (Anthropic ใช้คำว่า "usage limit"
-// ไม่ใช่ "quota" เหมือน OpenAI) แล้วแปลงเป็นข้อความที่ผู้ใช้เข้าใจได้ทันที
-function friendlyChatErrorMessage(error: unknown, lang: Lang): string {
-  const rawMessage = error instanceof Error ? error.message : String(error ?? "");
-  const isQuota = /insufficient_quota|quota|usage limit/i.test(rawMessage);
-
-  if (isQuota) {
-    return lang === "th"
-      ? "โควต้าการใช้งาน AI เต็มแล้ว กรุณาลองใหม่ภายหลัง"
-      : "AI usage quota exceeded, please try again later";
-  }
-
-  return lang === "th"
-    ? `เกิดข้อผิดพลาด${rawMessage ? `: ${rawMessage}` : ""}`
-    : `Error${rawMessage ? `: ${rawMessage}` : ""}`;
-}
+import { useCulicoidesAnalysis, type NavSection } from "@/hooks/useCulicoidesAnalysis";
+import { UploadSection } from "@/components/workspace/UploadSection";
+import { ResultsSection } from "@/components/workspace/ResultsSection";
+import { ChatSection } from "@/components/workspace/ChatSection";
+import { InspectorSection } from "@/components/workspace/InspectorSection";
 
 export default function Index() {
   const [lang, setLang] = useState<Lang>("th");
   const t = TEXT[lang];
-
-  const [mlModel, setMlModel] = useState(ML_MODELS[0].id);
-  const [aiModel, setAiModel] = useState(AI_MODELS[0].id);
-  const [imagePreview, setImagePreview] = useState<string | null>(null); // data URL
-  const [imageFile, setImageFile] = useState<File | null>(null);
-  const [result, setResult] = useState<PredictionResult | null>(null);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
-  const [isChatLoading, setIsChatLoading] = useState(false);
-  const [activeNav, setActiveNav] = useState<NavSection>("upload");
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [historyItems, setHistoryItems] = useState<HistoryItem[]>([]);
-  const [provinces, setProvinces] = useState<string[]>([]);
-  const [isMapLoading, setIsMapLoading] = useState(false);
-  const [systemPrompt, setSystemPrompt] = useState(DEFAULT_AI_SYSTEM_PROMPT);
-  const explanationRequestId = useRef(0);
 
-  // ── Uploaded blob URL cache ──────────────────────────────────
-  // uploadImage() writes to Vercel Blob storage (1GB cap on Hobby plan).
-  // Re-uploading the same original photo / gradcam heatmap on every AI-model
-  // switch or chat message burns through that quota fast — cache the URLs
-  // per image instead and only re-upload when the image actually changes.
-  const [originalImageUrl, setOriginalImageUrl] = useState<string | null>(null);
-  const [heatmapImageUrl, setHeatmapImageUrl] = useState<string | null>(null);
-
-  const handleImageSelect = useCallback((file: File, preview: string) => {
-    setImageFile(file);
-    setImagePreview(preview);
-    setResult(null);
-    setChatMessages([]);
-    setOriginalImageUrl(null);
-    setHeatmapImageUrl(null);
-  }, []);
-
-  const handleClearImage = useCallback(() => {
-    setImageFile(null);
-    setImagePreview(null);
-    setResult(null);
-    setChatMessages([]);
-    setProvinces([]);
-    setActiveNav("upload");
-    setOriginalImageUrl(null);
-    setHeatmapImageUrl(null);
-  }, []);
-
-  const handleRunInference = useCallback(async () => {
-    if (!imageFile) return;
-
-    try {
-      setIsAnalyzing(true);
-
-      const data = await predictImage(imageFile, mlModel);
-
-      // A fresh inference run means a fresh photo/gradcam pair — always upload
-      // here, but cache the result so later regenerate/chat calls reuse it.
-      const originalUpload = await uploadImage(imageFile);
-      setOriginalImageUrl(originalUpload.url);
-
-      const heatmapUpload = data.gradcam
-        ? await uploadImage(dataUrlToFile(data.gradcam, "gradcam.png"))
-        : null;
-      setHeatmapImageUrl(heatmapUpload?.url ?? null);
-
-      const explainRes = await chatWithPrediction({
-        message:
-          "ช่วยอธิบายผล Explainable AI โดยเน้นลักษณะของปีกจากภาพต้นฉบับร่วมกับ heatmap ตอบ 3-5 บรรทัด",
-        ai_model: aiModel,
-        mode: "explanation",
-        prediction: toPredictionPayload(data),
-        systemPrompt,
-        xai: {
-          highlightedRegions: ["กลางปีก", "ขอบปีก", "ลำตัว"],
-          confidenceDrivers: [
-            "Grad-CAM เน้นบริเวณปีกเป็นหลัก",
-            "ลักษณะบริเวณปีกสอดคล้องกับชนิดที่ทำนาย",
-          ],
-          warningFlags:
-            data.confidenceLevel === "low" || data.confidenceLevel === "ood"
-              ? ["ผลยังเป็นเบื้องต้น"]
-              : [],
-        },
-        images: {
-          original: originalUpload.url,
-          heatmap: heatmapUpload?.url ?? null,
-        },
-      });
-
-      let annotatedImage: string | null = null;
-      try {
-        const annotateRes = await fetch("/api/annotate", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            imageUrl: originalUpload.url,
-            aiModel,
-            provider: resolveAiProvider(aiModel),
-          }),
-        });
-        const { features } = await annotateRes.json();
-        if (features.length === 0) {
-          toast.info(
-            lang === "th"
-              ? "AI ยังไม่สามารถระบุจุดสังเกตบนภาพนี้ได้อัตโนมัติ"
-              : "AI couldn't automatically pinpoint features on this image"
-          );
-        }
-        annotatedImage = await drawAnnotatedWing(
-          imagePreview!,
-          null,
-          data.species,
-          data.confidence,
-          features,
-        );
-      } catch {
-        // annotation is optional — silently skip on failure
-      }
-
-      setResult({
-        ...data,
-        explanation: explainRes.answer,
-        annotatedImage,
-      });
-
-      setChatMessages([{ role: "assistant", content: explainRes.answer }]);
-      setActiveNav("results");
-
-      const history = await getHistory(20);
-      setHistoryItems(history.items);
-
-      // โหลดแผนที่การกระจายตัวใน background
-      setIsMapLoading(true);
-      getProvinces(data.species, aiModel)
-        .then((res) => setProvinces(res.provinces))
-        .catch(() => setProvinces([]))
-        .finally(() => setIsMapLoading(false));
-    } catch (error) {
-      console.error(error);
-      toast.error(friendlyChatErrorMessage(error, lang));
-    } finally {
-      setIsAnalyzing(false);
-    }
-  }, [imageFile, mlModel, aiModel, systemPrompt, lang]);
-
-  const [isExplaining, setIsExplaining] = useState(false);
-
-  // สร้างคำอธิบายใหม่โดยใช้ผลทำนาย/ภาพ/taxonomy เดิม แต่ ai_model หรือ systemPrompt อาจเปลี่ยนไป
-  const regenerateExplanation = useCallback(async () => {
-    if (!result || !imageFile) return;
-
-    const requestId = ++explanationRequestId.current;
-
-    try {
-      setIsExplaining(true);
-
-      // Reuse the blob URLs from the original inference run instead of
-      // re-uploading the same bytes every time the AI model changes.
-      const originalUrl = originalImageUrl ?? (await uploadImage(imageFile)).url;
-      if (!originalImageUrl) setOriginalImageUrl(originalUrl);
-
-      const heatmapUrl = heatmapImageUrl ?? (result.gradcam
-        ? (await uploadImage(dataUrlToFile(result.gradcam, "gradcam.png"))).url
-        : null);
-      if (!heatmapImageUrl && heatmapUrl) setHeatmapImageUrl(heatmapUrl);
-
-      const explainRes = await chatWithPrediction({
-        message:
-          "ช่วยอธิบายผล Explainable AI โดยเน้นลักษณะของปีกจากภาพต้นฉบับร่วมกับ heatmap ตอบ 3-5 บรรทัด",
-        ai_model: aiModel,
-        mode: "explanation",
-        prediction: toPredictionPayload(result),
-        systemPrompt,
-        xai: {
-          highlightedRegions: ["กลางปีก", "ขอบปีก", "ลำตัว"],
-          confidenceDrivers: [
-            "Grad-CAM เน้นบริเวณปีกเป็นหลัก",
-            "ลักษณะบริเวณปีกสอดคล้องกับชนิดที่ทำนาย",
-          ],
-          warningFlags:
-            result.confidenceLevel === "low" || result.confidenceLevel === "ood"
-              ? ["ผลยังเป็นเบื้องต้น"]
-              : [],
-        },
-        images: {
-          original: originalUrl,
-          heatmap: heatmapUrl ?? null,
-        },
-      });
-
-      if (explanationRequestId.current !== requestId) return;
-
-      let annotatedImage: string | null = null;
-      try {
-        if (imagePreview) {
-          const annotateRes = await fetch("/api/annotate", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              imageUrl: originalUrl,
-              aiModel,
-              provider: resolveAiProvider(aiModel),
-            }),
-          });
-          const { features } = await annotateRes.json();
-          if (features.length === 0) {
-            toast.info(
-              lang === "th"
-                ? "AI ยังไม่สามารถระบุจุดสังเกตบนภาพนี้ได้อัตโนมัติ"
-                : "AI couldn't automatically pinpoint features on this image"
-            );
-          }
-          annotatedImage = await drawAnnotatedWing(
-            imagePreview,
-            null,
-            result.species,
-            result.confidence,
-            features,
-          );
-        }
-      } catch { /* optional */ }
-
-      if (explanationRequestId.current !== requestId) return;
-
-      setResult((prev) =>
-        prev ? { ...prev, explanation: explainRes.answer, annotatedImage } : prev
-      );
-
-      // ข้อความแรกในแชต (คำอธิบายที่ทักมาอัตโนมัติ) อัปเดตตาม — ส่วนบทสนทนาถัดจากนั้นคงเดิม
-      setChatMessages((prev) => {
-        if (prev.length === 0 || prev[0].role !== "assistant") return prev;
-        const updated = [...prev];
-        updated[0] = { ...updated[0], content: explainRes.answer };
-        return updated;
-      });
-    } catch (error) {
-      console.error(error);
-      if (explanationRequestId.current !== requestId) return;
-
-      const message = friendlyChatErrorMessage(error, lang);
-      toast.error(message);
-
-      setResult((prev) => (prev ? { ...prev, explanation: message } : prev));
-      setChatMessages((prev) => {
-        if (prev.length === 0 || prev[0].role !== "assistant") return prev;
-        const updated = [...prev];
-        updated[0] = { ...updated[0], content: message };
-        return updated;
-      });
-    } finally {
-      if (explanationRequestId.current === requestId) setIsExplaining(false);
-    }
-  }, [result, imageFile, aiModel, systemPrompt, imagePreview, lang, originalImageUrl, heatmapImageUrl]);
-
-  // เปลี่ยนโมเดล AI แล้วให้สร้างคำอธิบายใหม่อัตโนมัติ
-  useEffect(() => {
-    regenerateExplanation();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [aiModel]);
-
-  const handleResetSystemPrompt = useCallback(() => {
-    setSystemPrompt(DEFAULT_AI_SYSTEM_PROMPT);
-  }, []);
-
-  const handleChatSend = useCallback(
-    async (message: string) => {
-      const nextUserMessage = { role: "user" as const, content: message };
-      setChatMessages((prev) => [...prev, nextUserMessage]);
-      setIsChatLoading(true);
-
-      try {
-        // Reuse the cached blob URLs from the original inference run instead
-        // of re-uploading the same photo/heatmap on every chat message.
-        let originalUrl = originalImageUrl;
-        if (!originalUrl && imageFile) {
-          originalUrl = (await uploadImage(imageFile)).url;
-          setOriginalImageUrl(originalUrl);
-        }
-
-        let heatmapUrl = heatmapImageUrl;
-        if (!heatmapUrl && result?.gradcam) {
-          heatmapUrl = (await uploadImage(dataUrlToFile(result.gradcam, "gradcam.png"))).url;
-          setHeatmapImageUrl(heatmapUrl);
-        }
-
-        const res = await chatWithPrediction({
-          message,
-          ai_model: aiModel,
-          mode: "vision",
-          prediction: result ? toPredictionPayload(result) : null,
-          // ตัด imageUrl (base64) ออกจาก history ที่ส่งไป backend เพราะ backend ใช้แค่ content
-          // และถ้าส่งไปเต็มๆ หลังสร้างภาพไปหลายรูป payload จะใหญ่เกิน Vercel function limit (FUNCTION_PAYLOAD_TOO_LARGE)
-          history: [...chatMessages, nextUserMessage].map(({ role, content }) => ({ role, content })),
-          xai: {
-            highlightedRegions: ["wing", "body"],
-            confidenceDrivers: [
-              "Grad-CAM เน้นบริเวณปีก",
-              "โมเดลให้คะแนนชนิดนี้สูงสุดใน top-k",
-            ],
-            warningFlags:
-              result?.confidenceLevel === "low" || result?.confidenceLevel === "ood"
-                ? ["ผลยังเป็นเบื้องต้น"]
-                : [],
-          },
-          images: {
-            original: originalUrl ?? null,
-            heatmap: heatmapUrl ?? null,
-          },
-        });
-
-        setChatMessages((prev) => [
-          ...prev,
-          { role: "assistant", content: res.answer, imageUrl: res.imageUrl, imageError: res.imageError },
-        ]);
-      } catch (error) {
-        console.error(error);
-        const content = friendlyChatErrorMessage(error, lang);
-        toast.error(content);
-        setChatMessages((prev) => [...prev, { role: "assistant", content }]);
-      } finally {
-        setIsChatLoading(false);
-      }
-    },
-    [aiModel, result, chatMessages, imageFile, lang, originalImageUrl, heatmapImageUrl]
-  );
-
-  const selectedAiName = AI_MODELS.find((m) => m.id === aiModel)?.name ?? "";
-
-  const heroStatusByLevel = {
-    high: {
-      icon: CheckCircle,
-      ring: "stroke-success",
-      text: "text-success",
-      badge: "border-success/30 bg-success/10",
-      label: t.confidenceHigh,
-    },
-    low: {
-      icon: AlertTriangle,
-      ring: "stroke-warning",
-      text: "text-warning",
-      badge: "border-warning/30 bg-warning/10",
-      label: t.confidenceLow,
-    },
-    ood: {
-      icon: XCircle,
-      ring: "stroke-destructive",
-      text: "text-destructive",
-      badge: "border-destructive/30 bg-destructive/10",
-      label: t.notSandfly,
-    },
-  } as const;
+  const analysis = useCulicoidesAnalysis(lang);
+  const {
+    mlModel,
+    setMlModel,
+    aiModel,
+    setAiModel,
+    activeNav,
+    setActiveNav,
+    imagePreview,
+    result,
+    isAnalyzing,
+    handleRunInference,
+  } = analysis;
 
   const navItems: { id: NavSection; label: string; icon: React.ElementType }[] = [
     { id: "upload", label: lang === "th" ? "อัปโหลด" : "Upload", icon: Upload },
     { id: "results", label: lang === "th" ? "ผลลัพธ์" : "Results", icon: BarChart3 },
-    { id: "chat", label: lang === "th" ? "แชท AI" : "AI Chat", icon: MessageSquare },
     { id: "inspector", label: "Inspector", icon: Settings2 },
   ];
-
-  useEffect(() => {
-    getHistory(20)
-      .then((res) => setHistoryItems(res.items))
-      .catch((err) => console.error(err));
-  }, []);
 
   return (
     <div className="flex h-screen overflow-hidden bg-background print:h-auto print:overflow-visible">
@@ -635,109 +230,7 @@ export default function Index() {
                   transition={{ duration: 0.2 }}
                   className="space-y-6"
                 >
-                  <div className="space-y-1">
-                    <h1 className="text-xl font-semibold text-foreground flex items-center gap-2">
-                      <Microscope className="h-5 w-5 text-accent" />
-                      {t.upload}
-                    </h1>
-                    <p className="text-sm text-muted-foreground">{t.subtitle}</p>
-                  </div>
-
-                  <div className={`grid gap-4 ${isAnalyzing ? "md:grid-cols-2" : "grid-cols-1"}`}>
-                    {imagePreview && result ? (
-                      <GradCamOverlay
-                        imageSrc={(result?.gradcam ?? imagePreview)!}
-                        visible={true}
-                        label="Grad-CAM++"
-                        onClear={handleClearImage}
-                      />
-                    ) : (
-                      <ImageUpload
-                        label={t.upload}
-                        hint={t.uploadHint}
-                        onImageSelect={handleImageSelect}
-                        onClear={handleClearImage}
-                        preview={imagePreview}
-                      />
-                    )}
-
-                    <AnimatePresence>
-                      {isAnalyzing && (
-                        <motion.div
-                          initial={{ opacity: 0, x: 16 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          exit={{ opacity: 0, x: 16 }}
-                          transition={{ duration: 0.2 }}
-                          className="flex flex-col justify-center rounded-xl border border-accent/40 bg-accent/5 p-5 space-y-4"
-                        >
-                          <div className="flex items-center gap-3">
-                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent/10">
-                              <Loader2 className="h-5 w-5 animate-spin text-accent" />
-                            </div>
-                            <div>
-                              <p className="text-sm font-semibold text-foreground">
-                                {lang === "th" ? "กำลังวิเคราะห์ภาพ" : "Analyzing image"}
-                              </p>
-                              <p className="text-xs text-muted-foreground">
-                                {lang === "th" ? "กรุณารอสักครู่..." : "Please wait..."}
-                              </p>
-                            </div>
-                          </div>
-                          <div className="space-y-2">
-                            {(mlModel === "ensemble"
-                              ? [
-                                  lang === "th" ? "รัน EfficientNet-B0" : "Running EfficientNet-B0",
-                                  lang === "th" ? "รัน ResNet-50" : "Running ResNet-50",
-                                  lang === "th" ? "รัน DenseNet-121" : "Running DenseNet-121",
-                                  lang === "th" ? "เปรียบเทียบ & เลือกผลดีที่สุด" : "Comparing & selecting best",
-                                  lang === "th" ? "ขอคำอธิบายจาก AI" : "Requesting AI explanation",
-                                ]
-                              : [
-                                  lang === "th" ? "ส่งภาพไปยัง ML model" : "Sending to ML model",
-                                  lang === "th" ? "สร้าง Grad-CAM heatmap" : "Generating Grad-CAM",
-                                  lang === "th" ? "ขอคำอธิบายจาก AI" : "Requesting AI explanation",
-                                ]
-                            ).map((step, i) => (
-                              <motion.div
-                                key={i}
-                                initial={{ opacity: 0, x: -6 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                transition={{ delay: i * 0.12 }}
-                                className="flex items-center gap-2.5 rounded-lg bg-background/60 px-3 py-2 text-xs text-muted-foreground"
-                              >
-                                <div className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent/60" />
-                                {step}
-                              </motion.div>
-                            ))}
-                          </div>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </div>
-
-                  {imagePreview && !result && (
-                    <div className="flex justify-end md:hidden">
-                      <button
-                        onClick={handleRunInference}
-                        disabled={isAnalyzing}
-                        className="flex items-center gap-2 rounded-md bg-accent px-5 py-2.5 text-sm font-medium text-accent-foreground transition-colors hover:bg-accent/90 disabled:opacity-60"
-                      >
-                        {isAnalyzing ? (
-                          <>
-                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                            {t.analyzing}
-                          </>
-                        ) : (
-                          <>
-                            <Play className="h-3.5 w-3.5" />
-                            {t.runInference}
-                          </>
-                        )}
-                      </button>
-                    </div>
-                  )}
-
-                  <ModelLatencyTable currentAiModel={aiModel} />
+                  <UploadSection analysis={analysis} lang={lang} t={t} />
                 </motion.div>
               )}
 
@@ -750,240 +243,12 @@ export default function Index() {
                   transition={{ duration: 0.2 }}
                   className="space-y-8"
                 >
-                  {/* Print-only report header */}
-                  {result && (
-                    <div className="hidden print:block print:mb-6">
-                      <div className="flex items-center gap-2 text-lg font-bold">
-                        <Bug className="h-5 w-5" />
-                        Culicoides AI — รายงานผลการวิเคราะห์
-                      </div>
-                      <p className="mt-1 text-xs text-gray-500">
-                        สร้างเมื่อ {new Date().toLocaleString("th-TH")} · โมเดล ML: {mlModel} · โมเดล AI: {selectedAiName}
-                      </p>
-                      <hr className="mt-3 border-gray-300" />
+                  <ResultsSection analysis={analysis} lang={lang} t={t} />
+                  {result && result.confidenceLevel !== "ood" && (
+                    <div className="border-t pt-8 space-y-6 print:hidden">
+                      <ChatSection analysis={analysis} lang={lang} t={t} />
                     </div>
                   )}
-
-                  <div className="flex items-start justify-between gap-3 print:hidden">
-                    <div className="space-y-1">
-                      <h1 className="text-xl font-semibold text-foreground flex items-center gap-2">
-                        <BarChart3 className="h-5 w-5 text-accent" />
-                        {lang === "th" ? "ผลการวิเคราะห์" : "Analysis Results"}
-                      </h1>
-                      <p className="text-sm text-muted-foreground">
-                        {lang === "th"
-                          ? "ผลลัพธ์จากการวิเคราะห์ภาพด้วย ML model"
-                          : "Results from ML model image analysis"}
-                      </p>
-                    </div>
-
-                    {result && (
-                      <button
-                        onClick={() => window.print()}
-                        className="flex shrink-0 items-center gap-1.5 rounded-md border bg-background px-3 py-2 text-xs font-medium text-foreground transition-colors hover:bg-secondary"
-                      >
-                        <Printer className="h-3.5 w-3.5" />
-                        {lang === "th" ? "พิมพ์ / บันทึก PDF" : "Print / Save as PDF"}
-                      </button>
-                    )}
-                  </div>
-
-                  {result ? (
-                    <>
-                      {(() => {
-                        const status = heroStatusByLevel[result.confidenceLevel];
-                        const StatusIcon = status.icon;
-                        const circumference = 2 * Math.PI * 42;
-
-                        return (
-                          <motion.div
-                            initial={{ opacity: 0, y: 8 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ duration: 0.3, ease: [0.2, 0, 0, 1] }}
-                            className="relative overflow-hidden rounded-xl border bg-card p-6"
-                          >
-                            <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-accent/10 via-transparent to-transparent" />
-
-                            <div className="relative flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
-                              <div className="space-y-2.5">
-                                <span
-                                  className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium ${status.badge} ${status.text}`}
-                                >
-                                  <StatusIcon className="h-3.5 w-3.5" />
-                                  {status.label}
-                                </span>
-                                <h2 className="text-2xl font-semibold italic text-foreground sm:text-3xl">
-                                  Culicoides {result.species}
-                                </h2>
-                                <p className="text-sm text-muted-foreground">
-                                  {t.genus}:{" "}
-                                  <span className="font-medium not-italic text-foreground">
-                                    {result.genus}
-                                  </span>
-                                  {result.modelUsed && (
-                                    <>
-                                      {" "}
-                                      ·{" "}
-                                      <span className="font-mono text-xs">{result.modelUsed}</span>
-                                    </>
-                                  )}
-                                </p>
-                              </div>
-
-                              <div className="relative flex h-28 w-28 shrink-0 items-center justify-center self-center">
-                                <svg viewBox="0 0 100 100" className="h-28 w-28 -rotate-90">
-                                  <circle
-                                    cx="50"
-                                    cy="50"
-                                    r="42"
-                                    strokeWidth="8"
-                                    className="fill-none stroke-secondary"
-                                  />
-                                  <motion.circle
-                                    cx="50"
-                                    cy="50"
-                                    r="42"
-                                    strokeWidth="8"
-                                    strokeLinecap="round"
-                                    className={`fill-none ${status.ring}`}
-                                    style={{ strokeDasharray: circumference }}
-                                    initial={{ strokeDashoffset: circumference }}
-                                    animate={{
-                                      strokeDashoffset:
-                                        circumference * (1 - result.confidence),
-                                    }}
-                                    transition={{ duration: 0.8, ease: [0.2, 0, 0, 1] }}
-                                  />
-                                </svg>
-                                <div className="absolute flex flex-col items-center">
-                                  <span className="tabular text-xl font-bold text-foreground">
-                                    {(result.confidence * 100).toFixed(0)}%
-                                  </span>
-                                  <span className="text-[9px] uppercase tracking-wide text-muted-foreground">
-                                    {t.confidence}
-                                  </span>
-                                </div>
-                              </div>
-                            </div>
-                          </motion.div>
-                        );
-                      })()}
-
-                      <ResultsPanel
-                        result={result}
-                        labels={t as unknown as Record<string, string>}
-                      />
-
-                      {imagePreview && (
-                        <div className="space-y-4">
-                          <div className="flex items-center gap-2 mb-2">
-                            <div className="flex h-7 w-7 items-center justify-center rounded-full bg-accent/10">
-                              <Layers className="h-3.5 w-3.5 text-accent" />
-                            </div>
-                            <span className="text-sm font-medium text-foreground">
-                              {lang === "th"
-                                ? "เปรียบเทียบภาพ — Grad-CAM++"
-                                : "Image Comparison — Grad-CAM++"}
-                            </span>
-                          </div>
-                          <GradCamCompare
-                            original={imagePreview}
-                            heatmap={result?.heatmap}
-                            gradcam={result?.gradcam}
-                          />
-                        </div>
-                      )}
-
-                      {result.modelComparison && result.modelComparison.length > 0 && (
-                        <div>
-                          <EnsembleChart
-                            comparison={result.modelComparison}
-                            bestModel={result.bestModel ?? ""}
-                          />
-                        </div>
-                      )}
-
-                      <div className="grid gap-6 lg:grid-cols-1">
-                        <TaxonomyTree taxonomy={result.taxonomy} label={t.taxonomy} />
-
-                        <ExplanationBlock
-                          text={
-                            result?.explanation ||
-                            (lang === "th" ? "ยังไม่มีคำอธิบายจาก AI" : "No AI explanation yet.")
-                          }
-                          label=""
-                          aiModel={selectedAiName}
-                          isLoading={isExplaining}
-                          annotatedImage={result?.annotatedImage}
-                        />
-
-                        <div>
-                          <div className="flex items-center gap-2 mb-3">
-                            <div className="flex h-7 w-7 items-center justify-center rounded-full bg-accent/10">
-                              <Map className="h-3.5 w-3.5 text-accent" />
-                            </div>
-                            <span className="text-sm font-medium text-foreground">
-                              {lang === "th" ? "แผนที่การกระจายตัว" : "Distribution Map"}
-                            </span>
-                          </div>
-                          <ThailandMap
-                            highlightedProvinces={provinces}
-                            species={result.species}
-                            isLoading={isMapLoading}
-                          />
-                        </div>
-                      </div>
-                    </>
-                  ) : (
-                    <div className="card-surface flex min-h-[58vh] flex-col items-center justify-center gap-3">
-                      <div className="flex h-16 w-16 items-center justify-center rounded-full bg-accent/10">
-                        <BarChart3 className="h-8 w-8 text-accent/60" />
-                      </div>
-                      <p className="max-w-xs text-center text-sm text-muted-foreground">
-                        {lang === "th"
-                          ? "ยังไม่มีผลการวิเคราะห์ กรุณาอัปโหลดภาพก่อน"
-                          : "No results yet. Please upload an image first."}
-                      </p>
-                      <button
-                        onClick={() => setActiveNav("upload")}
-                        className="mt-1 flex items-center gap-1.5 rounded-md bg-accent px-4 py-2 text-xs font-medium text-accent-foreground transition-colors hover:bg-accent/90"
-                      >
-                        <Upload className="h-3.5 w-3.5" />
-                        {lang === "th" ? "ไปอัปโหลดภาพ" : "Go to Upload"}
-                      </button>
-                    </div>
-                  )}
-                </motion.div>
-              )}
-
-              {activeNav === "chat" && (
-                <motion.div
-                  key="chat"
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -8 }}
-                  transition={{ duration: 0.2 }}
-                  className="space-y-6"
-                >
-                  <div className="space-y-1">
-                    <h1 className="text-xl font-semibold text-foreground flex items-center gap-2">
-                      <MessageSquare className="h-5 w-5 text-accent" />
-                      {t.chat}
-                    </h1>
-                    <p className="text-sm text-muted-foreground">
-                      {lang === "th"
-                        ? `ใช้ ${selectedAiName} เพื่อตอบคำถามเกี่ยวกับผลการวิเคราะห์`
-                        : `Using ${selectedAiName} to answer questions about analysis results`}
-                    </p>
-                  </div>
-
-                  <ChatPanel
-                    messages={chatMessages}
-                    onSend={handleChatSend}
-                    onClear={() => setChatMessages([])}
-                    labels={t as unknown as Record<string, string>}
-                    isLoading={isChatLoading}
-                  />
                 </motion.div>
               )}
 
@@ -996,31 +261,7 @@ export default function Index() {
                   transition={{ duration: 0.2 }}
                   className="space-y-6"
                 >
-                  <div className="space-y-1">
-                    <h1 className="text-xl font-semibold text-foreground flex items-center gap-2">
-                      <Settings2 className="h-5 w-5 text-accent" />
-                      Inspector
-                    </h1>
-                    <p className="text-sm text-muted-foreground">
-                      {lang === "th"
-                        ? "ข้อมูลทางเทคนิค, parameters, และ API logs"
-                        : "Technical details, parameters, and API logs"}
-                    </p>
-                  </div>
-
-                  <InspectorPanel
-                    selectedMlModel={mlModel}
-                    selectedAiModel={aiModel}
-                    result={result}
-                    labels={t as unknown as Record<string, string>}
-                    systemPrompt={systemPrompt}
-                    defaultSystemPrompt={DEFAULT_AI_SYSTEM_PROMPT}
-                    onSystemPromptChange={setSystemPrompt}
-                    onResetSystemPrompt={handleResetSystemPrompt}
-                    onApplySystemPrompt={regenerateExplanation}
-                    isApplyingSystemPrompt={isExplaining}
-                  />
-                  <HistoryPanel items={historyItems} />
+                  <InspectorSection analysis={analysis} lang={lang} t={t} />
                 </motion.div>
               )}
             </AnimatePresence>

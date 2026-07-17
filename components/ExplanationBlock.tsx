@@ -93,20 +93,6 @@ export function ExplanationBlock({ text, label, aiModel, isLoading, annotatedIma
           <Sparkles className="h-3.5 w-3.5 shrink-0 text-accent" />
           <span className="text-xs font-medium text-foreground">AI Explanation</span>
 
-          <AnimatePresence>
-            {isLoading && (
-              <motion.span
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="flex items-center gap-1 text-[10px] text-accent"
-              >
-                <Loader2 className="h-3 w-3 animate-spin" />
-                กำลังสร้างคำอธิบายใหม่...
-              </motion.span>
-            )}
-          </AnimatePresence>
-
           {aiModel && (
             <span className="ml-auto rounded border border-accent/30 bg-accent/5 px-1.5 py-0.5 font-mono text-[10px] text-accent">
               {aiModel}
@@ -142,16 +128,43 @@ export function ExplanationBlock({ text, label, aiModel, isLoading, annotatedIma
           )}
         </AnimatePresence>
 
-        {/* Markdown body */}
-        <div
-          className={`px-4 py-4 transition-opacity duration-200 ${
-            isLoading ? "opacity-50" : "opacity-100"
-          }`}
-        >
-          <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>
-            {text}
-          </ReactMarkdown>
-        </div>
+        {/* Body: big loader while waiting for the first token; once text starts
+            streaming in, show it live below with a small "typing" indicator. */}
+        {isLoading && !text.trim() ? (
+          <div className="flex flex-col items-center justify-center gap-5 px-4 py-16">
+            <div className="relative flex h-20 w-20 items-center justify-center">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent/20" />
+              <span className="relative flex h-20 w-20 items-center justify-center rounded-full bg-accent/10">
+                <Loader2 className="h-10 w-10 animate-spin text-accent" />
+              </span>
+            </div>
+            <div className="space-y-1.5 text-center">
+              <p className="text-lg font-semibold text-foreground">
+                กำลังสร้างคำอธิบายจาก AI
+              </p>
+              <p className="text-sm text-muted-foreground">
+                {aiModel ? `${aiModel} ` : ""}กำลังวิเคราะห์ภาพและ heatmap...
+              </p>
+            </div>
+            <div className="w-full max-w-md space-y-2.5 pt-1">
+              <div className="h-3 w-full animate-pulse rounded bg-muted" />
+              <div className="h-3 w-11/12 animate-pulse rounded bg-muted" />
+              <div className="h-3 w-4/5 animate-pulse rounded bg-muted" />
+            </div>
+          </div>
+        ) : (
+          <div className="px-4 py-4">
+            <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>
+              {text}
+            </ReactMarkdown>
+            {isLoading && (
+              <span className="mt-3 inline-flex items-center gap-1.5 text-xs text-accent">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                กำลังสร้างคำอธิบาย...
+              </span>
+            )}
+          </div>
+        )}
       </div>
     </motion.div>
   );

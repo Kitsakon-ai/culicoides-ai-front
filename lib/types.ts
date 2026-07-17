@@ -103,10 +103,11 @@ export const AI_PROVIDER_LABEL: Record<string, string> = {
 
 export const AI_MODELS: AIModel[] = [
   // OpenAI
+  { id: "gpt-5.6-terra", name: "GPT-5.6 Terra", provider: "openai" },
+  { id: "gpt-5.6-sol",   name: "GPT-5.6 Sol",   provider: "openai" },
+  { id: "gpt-5.6-luna",  name: "GPT-5.6 Luna",  provider: "openai" },
   { id: "gpt-4.1",      name: "GPT-4.1",       provider: "openai" },
   { id: "gpt-4.1-mini", name: "GPT-4.1 Mini",   provider: "openai" },
-  { id: "gpt-4o",       name: "GPT-4o",         provider: "openai" },
-  { id: "gpt-4o-mini",  name: "GPT-4o Mini",    provider: "openai" },
   // Google Gemini
   { id: "gemini-2.5-pro",   name: "Gemini 2.5 Pro",   provider: "gemini" },
   { id: "gemini-2.5-flash", name: "Gemini 2.5 Flash",  provider: "gemini" },

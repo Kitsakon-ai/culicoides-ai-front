@@ -16,7 +16,6 @@ import {
 
 interface EnsembleChartProps {
   comparison: ModelComparisonEntry[];
-  bestModel: string;
 }
 
 const MODEL_COLORS: Record<string, string> = {
@@ -37,7 +36,7 @@ const LEVEL_COLOR: Record<string, string> = {
   ood:  "text-red-500",
 };
 
-export function EnsembleChart({ comparison, bestModel }: EnsembleChartProps) {
+export function EnsembleChart({ comparison }: EnsembleChartProps) {
   // Build topK chart data: rows = species, cols = model confidence
   const allSpecies = [
     ...new Set(comparison.flatMap((m) => m.topK.map((k) => k.name))),

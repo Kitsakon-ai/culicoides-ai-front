@@ -4,9 +4,10 @@ import { Zap } from "lucide-react";
 import { AI_MODELS } from "@/lib/types";
 
 const LATENCY_DATA: Record<string, { latency: string; note: string; min: number }> = {
-  "gpt-4o-mini": { latency: "4-6s", note: "⚡ เร็ว", min: 4 },
+  "gpt-5.6-terra": { latency: "~2-4s", note: "⚡ ใหม่ · reasoning", min: 2 },
+  "gpt-5.6-sol": { latency: "~2-4s", note: "ใหม่ · reasoning", min: 2 },
+  "gpt-5.6-luna": { latency: "~3-5s", note: "ใหม่ · reasoning", min: 3 },
   "gpt-4.1-mini": { latency: "3-5s", note: "⚡⚡ เร็วที่สุด", min: 3 },
-  "gpt-4o": { latency: "4-7s", note: "⚡ เร็ว", min: 4 },
   "gpt-4.1": { latency: "6-10s", note: "ช้า", min: 6 },
   "gemini-2.5-pro": { latency: "4-6s", note: "ปกติ", min: 4 },
   "gemini-2.5-flash": { latency: "2-4s", note: "⚡⚡⚡ สุดเร็ว", min: 2 },

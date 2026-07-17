@@ -1,7 +1,5 @@
 import type { PredictionResult, HistoryItem, ChatMessage } from "@/lib/types";
 
-const API_URL = (process.env.NEXT_PUBLIC_API_URL ?? "").replace(/\/+$/, "");
-
 async function getErrorMessage(res: Response, fallback: string): Promise<string> {
   const contentType = res.headers.get("content-type") || "";
 
@@ -90,7 +88,8 @@ export type ChatWithPredictionResponse = {
 };
 
 export async function chatWithPrediction(
-  payload: ChatWithPredictionParams
+  payload: ChatWithPredictionParams,
+  onToken?: (chunk: string) => void
 ): Promise<ChatWithPredictionResponse> {
   const provider = resolveAiProvider(payload.ai_model);
 
@@ -111,7 +110,30 @@ export async function chatWithPrediction(
     throw new Error(message);
   }
 
-  return res.json();
+  const contentType = res.headers.get("content-type") || "";
+
+  // Image-generation requests still return JSON ({ answer, imageUrl, ... }).
+  if (contentType.includes("application/json") || !res.body) {
+    return res.json();
+  }
+
+  // Streamed text/plain — read incrementally and forward each chunk to onToken.
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let answer = "";
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    const chunk = decoder.decode(value, { stream: true });
+    if (chunk) {
+      answer += chunk;
+      onToken?.(chunk);
+    }
+  }
+  answer += decoder.decode(); // flush any trailing multi-byte character
+
+  return { answer };
 }
 
 export async function getHistory(limit = 20): Promise<{ items: HistoryItem[] }> {
@@ -174,7 +196,3 @@ export function dataUrlToFile(dataUrl: string, filename: string): File {
 
   return new File([bytes], filename, { type: mime });
 }
-console.log("FASTAPI_URL =", process.env.FASTAPI_URL)
-console.log("NEXT_PUBLIC_API_URL =", process.env.NEXT_PUBLIC_API_URL)
-
-export { API_URL };

@@ -2,7 +2,11 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import type { ModelComparisonEntry } from "@/lib/types";
 
-const API_URL = (process.env.FASTAPI_URL || "https://kitsakon-culiciodes.hf.space/").replace(/\/+$/, "");
+export const runtime = "nodejs";
+// ปลุก HF Space + inference (ensemble = 3 เรียก) อาจนาน — Vercel Pro รองรับถึง 300s
+export const maxDuration = 60;
+
+const API_URL = (process.env.FASTAPI_URL || "http://127.0.0.1:3001").replace(/\/+$/, "");
 // https://kitsakon-culiciodes.hf.space/ http://127.0.0.1:3001
 
 const MODEL_LABELS: Record<string, string> = {
