@@ -191,7 +191,8 @@ export function useCulicoidesAnalysis(lang: Lang) {
         toast.error(message);
 
         // แสดง error ในการ์ดคำอธิบายด้านบน (ไม่ต้อง seed ลงแชต)
-        setResult((prev) => (prev ? { ...prev, explanation: message } : prev));
+        // ล้างรูป annotation ของรอบก่อนทิ้งด้วย — กันภาพเก่าค้างข้าง error สด
+        setResult((prev) => (prev ? { ...prev, explanation: message, annotatedImage: null } : prev));
       } finally {
         if (explanationRequestId.current === requestId) setIsExplaining(false);
       }

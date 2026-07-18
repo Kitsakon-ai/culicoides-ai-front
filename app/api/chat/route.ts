@@ -14,7 +14,7 @@ import { embedText } from "@/lib/embeddings";
 export const runtime = "nodejs";
 // Streamed responses can run long (esp. explanation mode w/ large max_tokens).
 // Vercel Pro (Fluid Compute) — up to 300s.
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 type Msg = {
   role: "user" | "assistant";
@@ -277,6 +277,12 @@ async function* streamGemini(body: ChatBody, prompt: string): AsyncGenerator<str
   );
 
   if (!res.ok || !res.body) {
+    // ไม่สลับโมเดลแทนให้อัตโนมัติ — ผู้ใช้ต้องรู้ว่าโมเดลที่เลือกไว้มีปัญหาอะไร
+    if (res.status === 503 || res.status === 429) {
+      throw new Error(
+        `${body.ai_model} คิวเต็มชั่วคราวฝั่ง Google (${res.status}) — รอสักครู่แล้วลองใหม่ หรือเปลี่ยนโมเดลจากเมนู`
+      );
+    }
     throw new Error(`Gemini error ${res.status}: ${await res.text().catch(() => "")}`);
   }
 
@@ -447,7 +453,7 @@ async function generateImageGemini(prompt: string): Promise<ImageGenResult> {
   if (!apiKey) return { url: null, error: "Missing GEMINI_API_KEY" };
   try {
     const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp-image-generation:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-image:generateContent?key=${apiKey}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },

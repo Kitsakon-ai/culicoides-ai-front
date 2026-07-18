@@ -7,7 +7,7 @@ import { loadAndCropWing } from "@/lib/wing-crop";
 export const runtime = "nodejs";
 // Vercel Pro (Fluid Compute) รองรับถึง 300s — gpt-image edit ~57s ต้องการ headroom
 // (หมายเหตุ: Hobby cap 60s → ค่านี้จะ deploy ไม่ผ่านบน Hobby ต้องอัปเป็น Pro ก่อน)
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 export type AnnotatedFeature = {
   name: string;
@@ -252,7 +252,7 @@ async function findFeaturesGemini(base64: string, mime: string, prompt: string, 
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) return null;
 
-  const model = aiModel?.startsWith("gemini") ? aiModel : "gemini-2.5-flash";
+  const model = aiModel?.startsWith("gemini") ? aiModel : "gemini-3.5-flash";
 
   const res = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,

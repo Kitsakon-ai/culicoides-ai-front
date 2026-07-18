@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Play,
   Loader2,
@@ -55,6 +55,14 @@ export default function Index() {
     isAnalyzing,
     handleRunInference,
   } = analysis;
+
+  const mainRef = useRef<HTMLElement>(null);
+
+  // รีเซ็ต scroll ตอนสลับ section — ทุก section ใช้ <main> ตัวเดียวกัน
+  // ถ้าไม่รีเซ็ต ตำแหน่ง scroll เดิมจะโดน clamp ไปติดล่างสุดเมื่อ section ใหม่สั้นกว่า
+  useEffect(() => {
+    mainRef.current?.scrollTo({ top: 0 });
+  }, [activeNav]);
 
   const navItems: { id: NavSection; label: string; icon: React.ElementType }[] = [
     { id: "upload", label: lang === "th" ? "อัปโหลด" : "Upload", icon: Upload },
@@ -218,7 +226,7 @@ export default function Index() {
           ))}
         </div>
 
-        <main className="flex-1 overflow-y-auto print:overflow-visible">
+        <main ref={mainRef} className="flex-1 overflow-y-auto print:overflow-visible">
           <div className="mx-auto max-w-7xl p-4 md:p-8 print:max-w-none print:p-0">
             <AnimatePresence mode="wait">
               {activeNav === "upload" && (

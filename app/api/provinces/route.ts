@@ -4,7 +4,7 @@ import { getProvincesForSpecies } from "@/lib/knowledge";
 
 export const runtime = "nodejs";
 // Vercel Pro (Fluid Compute) — up to 300s (DB-first เร็ว, เผื่อ LLM fallback ช้า)
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 type ProvincesBody = {
   species: string;
@@ -116,9 +116,17 @@ async function askGemini(aiModel: string, prompt: string): Promise<string> {
     }
   );
 
-  const data = await res.json();
-  if (!res.ok) throw new Error(`Gemini error ${res.status}`);
+  if (!res.ok) {
+    // ไม่สลับโมเดลแทนให้อัตโนมัติ — ผู้ใช้ต้องรู้ว่าโมเดลที่เลือกไว้มีปัญหาอะไร
+    if (res.status === 503 || res.status === 429) {
+      throw new Error(
+        `${aiModel} คิวเต็มชั่วคราวฝั่ง Google (${res.status}) — รอสักครู่แล้วลองใหม่ หรือเปลี่ยนโมเดลจากเมนู`
+      );
+    }
+    throw new Error(`Gemini error ${res.status}`);
+  }
 
+  const data = await res.json();
   return data?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
 }
 

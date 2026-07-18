@@ -109,9 +109,9 @@ export const AI_MODELS: AIModel[] = [
   { id: "gpt-4.1",      name: "GPT-4.1",       provider: "openai" },
   { id: "gpt-4.1-mini", name: "GPT-4.1 Mini",   provider: "openai" },
   // Google Gemini
-  { id: "gemini-2.5-pro",   name: "Gemini 2.5 Pro",   provider: "gemini" },
-  { id: "gemini-2.5-flash", name: "Gemini 2.5 Flash",  provider: "gemini" },
-  { id: "gemini-2.0-flash", name: "Gemini 2.0 Flash",  provider: "gemini" },
+  { id: "gemini-3.1-pro-preview", name: "Gemini 3.1 Pro (Preview)", provider: "gemini" },
+  { id: "gemini-3.5-flash",       name: "Gemini 3.5 Flash",         provider: "gemini" },
+  { id: "gemini-3.1-flash-lite",  name: "Gemini 3.1 Flash-Lite",    provider: "gemini" },
   // Anthropic Claude
   { id: "claude-opus-4-8",   name: "Claude Opus 4.8",   provider: "claude" },
   { id: "claude-sonnet-4-6", name: "Claude Sonnet 4.6", provider: "claude" },
