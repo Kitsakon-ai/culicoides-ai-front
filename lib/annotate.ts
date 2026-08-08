@@ -1,4 +1,5 @@
 import type { AnnotatedFeature } from "@/app/api/annotate/route";
+import type { Lang } from "@/lib/i18n";
 
 // Draw at half the source photo's resolution — these are often multi-thousand-px
 // microscope scans, so the full-res canvas produces a huge base64 PNG that's slow
@@ -56,8 +57,9 @@ function drawFeatureLabel(
   ctx: CanvasRenderingContext2D,
   featX: number,    // feature point (canvas px)
   featY: number,
-  labelTh: string,
-  labelEn: string,
+  // ป้ายสองบรรทัด: บรรทัดบนเป็นภาษาของ UI ปัจจุบัน อีกภาษาไว้บรรทัดล่าง
+  primaryLabel: string,
+  secondaryLabel: string,
   color: string,
   canvasW: number,
   canvasH: number,
@@ -79,9 +81,9 @@ function drawFeatureLabel(
 
   // Measure label box
   ctx.font = `600 ${thSize}px 'Segoe UI', Tahoma, Arial, sans-serif`;
-  const thW = ctx.measureText(labelTh).width;
+  const thW = ctx.measureText(primaryLabel).width;
   ctx.font = `${enSize}px 'Segoe UI', Tahoma, Arial, sans-serif`;
-  const enW = ctx.measureText(labelEn).width;
+  const enW = ctx.measureText(secondaryLabel).width;
   const boxW = Math.max(thW, enW) + pad * 2;
   const boxH = thSize + enSize + lineGap + pad * 2;
 
@@ -127,17 +129,17 @@ function drawFeatureLabel(
   ctx.fill();
   ctx.stroke();
 
-  // Thai text
+  // Primary line (UI language)
   ctx.fillStyle = "#ffffff";
   ctx.font = `600 ${thSize}px 'Segoe UI', Tahoma, Arial, sans-serif`;
   ctx.textAlign = "left";
   ctx.textBaseline = "top";
-  ctx.fillText(labelTh, labelX + pad, labelY + pad);
+  ctx.fillText(primaryLabel, labelX + pad, labelY + pad);
 
-  // English text
+  // Secondary line (the other language)
   ctx.fillStyle = hexToRgba(color, 0.9);
   ctx.font = `${enSize}px 'Segoe UI', Tahoma, Arial, sans-serif`;
-  ctx.fillText(labelEn, labelX + pad, labelY + pad + thSize + lineGap);
+  ctx.fillText(secondaryLabel, labelX + pad, labelY + pad + thSize + lineGap);
 }
 
 export async function drawAnnotatedWing(
@@ -146,6 +148,7 @@ export async function drawAnnotatedWing(
   species: string,
   confidence: number,
   features?: AnnotatedFeature[],
+  lang: Lang = "th",
 ): Promise<string> {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -168,8 +171,8 @@ export async function drawAnnotatedWing(
             ctx,
             f.x * W,
             f.y * H,
-            f.labelTh,
-            f.labelEn,
+            lang === "en" ? f.labelEn : f.labelTh,
+            lang === "en" ? f.labelTh : f.labelEn,
             f.color,
             W,
             H,

@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
-import { DEFAULT_AI_SYSTEM_PROMPT } from "@/lib/prompts";
+import type { Lang } from "@/lib/i18n";
+import { getDefaultSystemPrompt } from "@/lib/prompts";
+import { PROMPT_PACK, resolveLang } from "@/lib/chat-prompts";
 import {
   getSpeciesFacts,
   searchDocuments,
@@ -25,6 +27,8 @@ type ChatBody = {
   provider: "openai" | "gemini" | "claude";
   ai_model: string;
   mode?: "explanation" | "vision";
+  // ภาษาที่ผู้ใช้เลือกใน UI — กำหนดภาษาของ prompt ทั้งก้อน (ไม่ส่งมา = ไทย)
+  lang?: Lang;
   message: string;
   systemPrompt?: string;
   prediction: {
@@ -65,89 +69,72 @@ function messageRefersToImage(message: string): boolean {
   return cues.some((c) => m.includes(c));
 }
 
-// วิธีสั่งให้ AI ยึดข้อมูลจากฐานข้อมูล (structured facts + RAG) เป็นแหล่งหลักก่อนเสมอ
-// ถ้าไม่มีในฐานข้อมูล ค่อยเสริมด้วยงานวิจัยที่เกี่ยวข้องย้อนหลังไม่เกิน 5 ปี
-const GROUNDING = `สำคัญ — วิธีใช้ข้อมูลตอบ:
-- ใช้ [ข้อมูลจากฐานข้อมูล] และ [ข้อความจากงานวิจัย] ด้านล่างเป็นแหล่งหลักในการตอบก่อนเสมอ
-- ถ้าข้อมูลด้านล่างไม่ครอบคลุมคำถาม ให้เสริมด้วยงานวิจัยที่เกี่ยวข้องย้อนหลังไม่เกิน 5 ปี และระบุให้ชัดว่าเป็นข้อมูลความรู้ทั่วไป/งานวิจัยล่าสุด ไม่ใช่จากฐานข้อมูลของระบบ
-- ห้ามกุรายชื่อจังหวัดหรือข้อเท็จจริงที่ไม่มีใน [ข้อมูลจากฐานข้อมูล]`;
-
-// ให้ explanation ครอบคลุม "ความสำคัญทางการแพทย์/สาธารณสุข" — อันตราย + โรคที่นำ (เน้นไวรัส)
-// ยึด "บทบาทพาหะ" (vector_role) จากฐานข้อมูลก่อน ถ้าไม่มีให้ระบุชัดว่าเป็นความรู้ทั่วไป ห้ามมโนชื่อโรค/ไวรัส/ตัวเลข
-const VECTOR_DANGER = `นอกจากระบุชนิดและอธิบายลักษณะปีกแล้ว ให้เพิ่มหัวข้อสั้น ๆ "ความสำคัญทางการแพทย์/สาธารณสุข":
-- ริ้นชนิดนี้เป็นอันตราย/ก่อความรำคาญอย่างไร (การกัด อาการแพ้/ผื่นคัน และบทบาทการเป็นพาหะ)
-- เป็นพาหะนำโรคอะไรบ้าง โดยเฉพาะ "โรคที่เกิดจากไวรัส" (กลุ่ม arbovirus ที่ Culicoides เป็นพาหะ เช่น bluetongue virus, Schmallenberg virus, Oropouche virus ฯลฯ) — ถ้าเกี่ยวข้อง ให้ระบุชื่อโรค/ไวรัส และผู้ที่ได้รับผลกระทบ (คน/ปศุสัตว์)
-- ยึด "บทบาทพาหะ" ใน [ข้อมูลจากฐานข้อมูล] เป็นหลักก่อนเสมอ ถ้าฐานข้อมูลไม่ได้ระบุ ให้บอกชัดว่าเป็นความรู้ทั่วไป/งานวิจัย ไม่ใช่จากฐานข้อมูลของระบบ
-- ตัวอย่างไวรัสข้างต้นเป็นภาพรวมระดับสกุล Culicoides ต้องตรวจสอบว่าชนิดนี้เป็นพาหะจริงหรือไม่ ห้ามกุชื่อโรค ชื่อไวรัส หรือตัวเลขที่ไม่มีหลักฐาน ถ้าไม่ใช่พาหะสำคัญหรือไม่แน่ใจ ให้บอกตรง ๆ ว่า "ยังไม่มีรายงานชัดเจน/ไม่พบในฐานข้อมูล"`;
+// ข้อความ prompt ทุกก้อนอยู่ใน lib/chat-prompts.ts (แยกตามภาษา)
+// ที่นี่เหลือเฉพาะการประกอบร่างจากผลทำนาย + knowledge context
+const topKText = (topK?: { name: string; probability: number }[]) =>
+  topK?.map((x) => `${x.name} ${(x.probability * 100).toFixed(1)}%`).join(", ") ?? "";
 
 function buildExplanationPrompt(body: ChatBody, knowledge: string) {
+  const lang = resolveLang(body.lang);
+  const L = PROMPT_PACK[lang];
   const p = body.prediction;
+
   const predContext = p
-    ? `\n\nผล ML model: ทำนาย Culicoides ${p.species} (ความเชื่อมั่น ${(p.confidence * 100).toFixed(1)}%, สถานะ: ${p.confidenceLevel})${p.topK ? ` | topK: ${p.topK.map((x) => `${x.name} ${(x.probability * 100).toFixed(1)}%`).join(", ")}` : ""}`
+    ? `\n\n${L.explanation.mlResult(p.species, (p.confidence * 100).toFixed(1), p.confidenceLevel, topKText(p.topK))}`
     : "";
 
-  const persona = body.systemPrompt?.trim() || DEFAULT_AI_SYSTEM_PROMPT;
-  const knowledgeBlock = knowledge ? `\n\n${GROUNDING}\n\n${knowledge}` : "";
+  const persona = body.systemPrompt?.trim() || getDefaultSystemPrompt(lang);
+  const knowledgeBlock = knowledge ? `\n\n${L.grounding}\n\n${knowledge}` : "";
 
-  return `${persona}${predContext}\n\n${VECTOR_DANGER}${knowledgeBlock}`;
+  return `${persona}${predContext}\n\n${L.vectorDanger}${knowledgeBlock}`;
 }
 
 function buildImageGenTextPrompt(body: ChatBody): string {
+  const L = PROMPT_PACK[resolveLang(body.lang)];
   const p = body.prediction;
   const species = p ? `Culicoides ${p.species}` : "Culicoides";
-  return `คุณเป็น AI ผู้ช่วยวิจัยแมลง Culicoides ผู้ใช้ขอสร้างภาพ: "${body.message}"
-ระบบกำลังสร้างภาพ ${species} ให้อธิบายสั้น ๆ (2-3 ประโยค ภาษาไทย) ว่า:
-- ภาพที่จะได้รับจะแสดงลักษณะอะไรของ ${species}
-- ลักษณะสัณฐานวิทยาสำคัญที่ควรสังเกต
-ห้ามบอกว่าสร้างรูปไม่ได้ เพราะระบบกำลังสร้างรูปให้อยู่แล้ว`;
+  return L.imageGen(species, body.message);
 }
 
 function buildVisionPrompt(body: ChatBody, knowledge: string, hasImage: boolean) {
+  const L = PROMPT_PACK[resolveLang(body.lang)].vision;
+  const grounding = PROMPT_PACK[resolveLang(body.lang)].grounding;
+
   const historyText =
-    body.history?.map((m) => `${m.role === "user" ? "ผู้ใช้" : "ผู้ช่วย"}: ${m.content}`).join("\n") ||
-    "ยังไม่มีประวัติการสนทนา";
+    body.history
+      ?.map((m) => `${m.role === "user" ? L.user : L.assistant}: ${m.content}`)
+      .join("\n") || L.noHistory;
 
   const p = body.prediction;
   const predLine = p
-    ? `ผลทำนายปัจจุบัน: Culicoides ${p.species} (ความเชื่อมั่น ${(p.confidence * 100).toFixed(1)}%, สถานะ ${p.confidenceLevel})${p.topK ? ` | top-k: ${p.topK.map((x) => `${x.name} ${(x.probability * 100).toFixed(1)}%`).join(", ")}` : ""}`
-    : "ยังไม่มีผลทำนายในระบบตอนนี้";
+    ? L.prediction(p.species, (p.confidence * 100).toFixed(1), p.confidenceLevel, topKText(p.topK))
+    : L.noPrediction;
 
   const imageLine = hasImage
-    ? `มีภาพปีก${isHttpUrl(body.images?.heatmap) ? " + ภาพ Grad-CAM" : ""} แนบมาให้ในคำถามนี้ (Grad-CAM เน้น: ${(body.xai?.highlightedRegions ?? []).join(", ") || "-"}) ตอบเรื่องภาพนี้ได้`
-    : "คำถามนี้ไม่ได้แนบภาพ — ตอบจากผลทำนายและฐานความรู้ อย่าบรรยายรายละเอียดจากภาพที่มองไม่เห็น และอย่าบอกว่ามองภาพไม่ได้ ให้ตอบเนื้อหาที่ถามตามปกติ";
+    ? L.imageAttached(
+        isHttpUrl(body.images?.heatmap),
+        (body.xai?.highlightedRegions ?? []).join(", ")
+      )
+    : L.imageMissing;
 
-  const knowledgeBlock = knowledge ? `\n\n${GROUNDING}\n\n${knowledge}` : "";
+  const knowledgeBlock = knowledge ? `\n\n${grounding}\n\n${knowledge}` : "";
 
-  return `คุณคือ "CulicoidesAI Assistant" ผู้ช่วยของระบบ AI จำแนกริ้น Culicoides จากภาพปีก ตอบเป็นภาษาไทย กระชับ ถูกต้องเชิงวิชาการ เหมาะกับนิสิต/นักวิจัย
+  return `${L.persona}
 
-หน้าที่หลัก — ช่วยเรื่อง:
-- การจำแนกชนิด Culicoides, ลักษณะสัณฐาน/ลายปีก, การแปลผลทำนายและความเชื่อมั่น
-- โรคที่นำโดยพาหะ (vector-borne diseases), กีฏวิทยา, ชีววิทยา/นิเวศ
-- Deep Learning, Computer Vision, Explainable AI (Grad-CAM), การจำแนกภาพ, คุณภาพภาพ, การเตรียม dataset
-
-ขอบเขตการตอบ:
-- คำถามความรู้ทั่วไปที่โยงกับงานของระบบได้ (เช่น "CNN คืออะไร", "Python คืออะไร", "embedding คืออะไร", "overfitting คืออะไร") ให้ตอบได้ แล้วโยงกลับสั้น ๆ ว่าเกี่ยวข้องกับระบบนี้อย่างไร (เช่น CNN คือโมเดลที่ระบบใช้จำแนกภาพปีก Culicoides)
-- คำถามนอกขอบเขตโดยสิ้นเชิง (กีฬา, ดารา/บันเทิง, การเมือง, ดูดวง, เรื่องส่วนตัว ฯลฯ) ให้ปฏิเสธอย่างสุภาพสั้น ๆ แล้วเบนกลับว่า ระบบนี้เชี่ยวชาญ Culicoides / กีฏวิทยา / โรคจากพาหะ / AI วิเคราะห์ภาพ และชวนให้ถามเรื่องที่เกี่ยวข้อง — ห้ามแต่งคำตอบให้เรื่องนอกขอบเขต
-
-การใช้ข้อมูลและความซื่อสัตย์:
-- ถ้ามี [ข้อมูลจากฐานข้อมูล] / [ข้อความจากงานวิจัย] ด้านล่าง ให้ยึดเป็นแหล่งหลักในการตอบก่อนเสมอ
-- ถ้าคำตอบไม่มีในข้อมูลด้านล่าง ให้บอกชัดว่า "ไม่พบในฐานข้อมูลของระบบ" ก่อน แล้วจึงเสริมด้วยความรู้ทั่วไป/งานวิจัยย้อนหลังไม่เกิน 5 ปี (ระบุว่าเป็นความรู้ทั่วไป)
-- ห้ามกุข้อเท็จจริง/ตัวเลข/ชื่อจังหวัด/ผลการทดลอง ถ้าไม่แน่ใจให้บอกตรง ๆ ว่าไม่แน่ใจ
-
-บริบทปัจจุบัน:
+${L.contextHeading}
 ${predLine}
 ${imageLine}
 
-ประวัติการสนทนา:
+${L.historyHeading}
 ${historyText}
 
-คำถามผู้ใช้: ${body.message}${knowledgeBlock}`;
+${L.questionHeading} ${body.message}${knowledgeBlock}`;
 }
 
-async function urlToGeminiInlineData(url: string) {
+async function urlToGeminiInlineData(url: string, lang: Lang) {
   const res = await fetch(url);
   if (!res.ok) {
-    throw new Error(`โหลดรูปจาก URL ไม่สำเร็จ: ${url}`);
+    throw new Error(PROMPT_PACK[lang].notice.imageFetchFailed(url));
   }
 
   const contentType = res.headers.get("content-type") || "image/jpeg";
@@ -186,12 +173,13 @@ function buildClaudeContent(prompt: string, body: ChatBody): Anthropic.MessagePa
 }
 
 async function buildGeminiParts(prompt: string, body: ChatBody) {
+  const lang = resolveLang(body.lang);
   const parts: any[] = [{ text: prompt }];
   if (isHttpUrl(body.images?.original)) {
-    parts.push({ inline_data: await urlToGeminiInlineData(body.images!.original!) });
+    parts.push({ inline_data: await urlToGeminiInlineData(body.images!.original!, lang) });
   }
   if (isHttpUrl(body.images?.heatmap)) {
-    parts.push({ inline_data: await urlToGeminiInlineData(body.images!.heatmap!) });
+    parts.push({ inline_data: await urlToGeminiInlineData(body.images!.heatmap!, lang) });
   }
   return parts;
 }
@@ -288,7 +276,7 @@ async function* streamGemini(body: ChatBody, prompt: string): AsyncGenerator<str
     // ไม่สลับโมเดลแทนให้อัตโนมัติ — ผู้ใช้ต้องรู้ว่าโมเดลที่เลือกไว้มีปัญหาอะไร
     if (res.status === 503 || res.status === 429) {
       throw new Error(
-        `${body.ai_model} คิวเต็มชั่วคราวฝั่ง Google (${res.status}) — รอสักครู่แล้วลองใหม่ หรือเปลี่ยนโมเดลจากเมนู`
+        PROMPT_PACK[resolveLang(body.lang)].notice.geminiBusy(body.ai_model, res.status)
       );
     }
     throw new Error(`Gemini error ${res.status}: ${await res.text().catch(() => "")}`);
@@ -311,6 +299,7 @@ async function* streamClaude(body: ChatBody, prompt: string): AsyncGenerator<str
   if (!apiKey) throw new Error("Missing ANTHROPIC_API_KEY");
 
   const client = new Anthropic({ apiKey });
+  const notice = PROMPT_PACK[resolveLang(body.lang)].notice;
   const content = buildClaudeContent(prompt, body);
   const original = body.ai_model;
   let model = body.ai_model;
@@ -329,7 +318,7 @@ async function* streamClaude(body: ChatBody, prompt: string): AsyncGenerator<str
     for await (const event of stream) {
       if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
         if (!emitted && model !== original) {
-          yield `_(หมายเหตุ: ${original} ปฏิเสธคำขอนี้ ระบบจึงใช้ ${model} ตอบแทน)_\n\n`;
+          yield notice.claudeFallback(original, model);
         }
         emitted = true;
         yield event.delta.text;
@@ -350,7 +339,7 @@ async function* streamClaude(body: ChatBody, prompt: string): AsyncGenerator<str
     }
 
     if (!emitted) {
-      yield `ไม่สามารถสร้างคำตอบได้ (stop_reason: ${final.stop_reason ?? "unknown"})`;
+      yield notice.noAnswer(final.stop_reason ?? "unknown");
     }
     return;
   }

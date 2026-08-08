@@ -2,6 +2,7 @@
 
 import { Trophy } from "lucide-react";
 import type { ModelComparisonEntry } from "@/lib/types";
+import type { Lang } from "@/lib/i18n";
 import {
   BarChart,
   Bar,
@@ -16,18 +17,40 @@ import {
 
 interface EnsembleChartProps {
   comparison: ModelComparisonEntry[];
+  lang: Lang;
 }
+
+const TEXT = {
+  th: {
+    title: "เปรียบเทียบ 3 โมเดล",
+    model: "โมเดล",
+    prediction: "ทำนาย",
+    confidence: "ความเชื่อมั่น",
+    status: "สถานะ",
+    result: "ผล",
+    best: "ดีที่สุด",
+    chartTitle: "ความน่าจะเป็นแต่ละชนิด (%)",
+    threshold: "เส้นประน้ำเงิน = เกณฑ์ 70%",
+    level: { high: "สูง", low: "ต่ำ", ood: "OOD" } as Record<string, string>,
+  },
+  en: {
+    title: "3-Model Comparison",
+    model: "Model",
+    prediction: "Prediction",
+    confidence: "Confidence",
+    status: "Status",
+    result: "Result",
+    best: "Best",
+    chartTitle: "Probability per species (%)",
+    threshold: "Blue dashed line = 70% threshold",
+    level: { high: "High", low: "Low", ood: "OOD" } as Record<string, string>,
+  },
+};
 
 const MODEL_COLORS: Record<string, string> = {
   efficientnet_b0: "#3b82f6",
   resnet50:        "#f97316",
   densenet121:     "#22c55e",
-};
-
-const LEVEL_LABEL: Record<string, string> = {
-  high: "สูง",
-  low:  "ต่ำ",
-  ood:  "OOD",
 };
 
 const LEVEL_COLOR: Record<string, string> = {
@@ -36,7 +59,9 @@ const LEVEL_COLOR: Record<string, string> = {
   ood:  "text-red-500",
 };
 
-export function EnsembleChart({ comparison }: EnsembleChartProps) {
+export function EnsembleChart({ comparison, lang }: EnsembleChartProps) {
+  const t = TEXT[lang];
+
   // Build topK chart data: rows = species, cols = model confidence
   const allSpecies = [
     ...new Set(comparison.flatMap((m) => m.topK.map((k) => k.name))),
@@ -56,9 +81,7 @@ export function EnsembleChart({ comparison }: EnsembleChartProps) {
       {/* Header */}
       <div className="flex items-center gap-2">
         <Trophy className="h-4 w-4 text-accent" />
-        <span className="text-sm font-semibold text-foreground">
-          เปรียบเทียบ 3 โมเดล
-        </span>
+        <span className="text-sm font-semibold text-foreground">{t.title}</span>
         <span className="ml-auto rounded border border-accent/30 bg-accent/5 px-2 py-0.5 font-mono text-[10px] text-accent">
           Ensemble
         </span>
@@ -69,11 +92,11 @@ export function EnsembleChart({ comparison }: EnsembleChartProps) {
         <table className="w-full text-left text-xs">
           <thead className="border-b bg-muted/30">
             <tr>
-              <th className="px-3 py-2 font-medium text-muted-foreground">โมเดล</th>
-              <th className="px-3 py-2 font-medium text-muted-foreground">ทำนาย</th>
-              <th className="px-3 py-2 font-medium text-muted-foreground">ความเชื่อมั่น</th>
-              <th className="px-3 py-2 font-medium text-muted-foreground">สถานะ</th>
-              <th className="px-3 py-2 font-medium text-muted-foreground">ผล</th>
+              <th className="px-3 py-2 font-medium text-muted-foreground">{t.model}</th>
+              <th className="px-3 py-2 font-medium text-muted-foreground">{t.prediction}</th>
+              <th className="px-3 py-2 font-medium text-muted-foreground">{t.confidence}</th>
+              <th className="px-3 py-2 font-medium text-muted-foreground">{t.status}</th>
+              <th className="px-3 py-2 font-medium text-muted-foreground">{t.result}</th>
             </tr>
           </thead>
           <tbody>
@@ -98,13 +121,13 @@ export function EnsembleChart({ comparison }: EnsembleChartProps) {
                   {(m.confidence * 100).toFixed(1)}%
                 </td>
                 <td className={`px-3 py-2 font-medium ${LEVEL_COLOR[m.confidenceLevel]}`}>
-                  {LEVEL_LABEL[m.confidenceLevel]}
+                  {t.level[m.confidenceLevel] ?? m.confidenceLevel}
                 </td>
                 <td className="px-3 py-2">
                   {m.isWinner ? (
                     <span className="inline-flex items-center gap-1 rounded-full bg-accent/15 px-2 py-0.5 text-[10px] font-semibold text-accent">
                       <Trophy className="h-2.5 w-2.5" />
-                      ดีที่สุด
+                      {t.best}
                     </span>
                   ) : (
                     <span className="text-muted-foreground">—</span>
@@ -118,9 +141,7 @@ export function EnsembleChart({ comparison }: EnsembleChartProps) {
 
       {/* Bar chart */}
       <div>
-        <p className="mb-3 text-xs font-medium text-muted-foreground">
-          ความน่าจะเป็นแต่ละชนิด (%)
-        </p>
+        <p className="mb-3 text-xs font-medium text-muted-foreground">{t.chartTitle}</p>
         <ResponsiveContainer width="100%" height={220}>
           <BarChart data={chartData} margin={{ top: 4, right: 8, left: -16, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" strokeOpacity={0.5} />
@@ -163,9 +184,7 @@ export function EnsembleChart({ comparison }: EnsembleChartProps) {
             ))}
           </BarChart>
         </ResponsiveContainer>
-        <p className="mt-1 text-center text-[10px] text-muted-foreground">
-          เส้นประน้ำเงิน = เกณฑ์ 70%
-        </p>
+        <p className="mt-1 text-center text-[10px] text-muted-foreground">{t.threshold}</p>
       </div>
     </div>
   );

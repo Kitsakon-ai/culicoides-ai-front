@@ -45,6 +45,7 @@ export function UploadSection({ analysis, lang, t }: Props) {
           // มีผลแล้วให้โชว์ dropzone เปล่า อัปโหลดภาพใหม่ได้ทันทีเมื่อกลับมาหน้านี้
           // (ภาพต้นฉบับ + Grad-CAM ของผลเดิมแสดงอยู่หน้าผลลัพธ์แล้ว)
           preview={result ? null : imagePreview}
+          lang={lang}
         />
 
         <AnimatePresence>
@@ -123,7 +124,7 @@ export function UploadSection({ analysis, lang, t }: Props) {
         </div>
       )}
 
-      <ModelLatencyTable currentAiModel={aiModel} />
+      <ModelLatencyTable currentAiModel={aiModel} lang={lang} />
     </>
   );
 }

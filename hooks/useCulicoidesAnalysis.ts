@@ -6,6 +6,7 @@ import type { Lang } from "@/lib/i18n";
 import {
   ML_MODELS,
   AI_MODELS,
+  LLM_SAFE_IMAGE_TYPES,
   type PredictionResult,
   type ChatMessage,
   type HistoryItem,
@@ -20,7 +21,8 @@ import {
   resolveAiProvider,
 } from "@/lib/api";
 import { drawAnnotatedWing } from "@/lib/annotate";
-import { DEFAULT_AI_SYSTEM_PROMPT } from "@/lib/prompts";
+import { getDefaultSystemPrompt } from "@/lib/prompts";
+import { PROMPT_PACK } from "@/lib/chat-prompts";
 import { toPredictionPayload, friendlyChatErrorMessage } from "@/lib/prediction-format";
 import { toast } from "@/components/ui/sonner";
 
@@ -43,8 +45,11 @@ export function useCulicoidesAnalysis(lang: Lang) {
   const [historyItems, setHistoryItems] = useState<HistoryItem[]>([]);
   const [provinces, setProvinces] = useState<string[]>([]);
   const [isMapLoading, setIsMapLoading] = useState(false);
-  const [systemPrompt, setSystemPrompt] = useState(DEFAULT_AI_SYSTEM_PROMPT);
+  const [systemPrompt, setSystemPrompt] = useState(() => getDefaultSystemPrompt(lang));
   const explanationRequestId = useRef(0);
+  // ภาษาของรอบก่อน — ใช้ตรวจว่า system prompt ที่ค้างอยู่ยังเป็น default ของภาษาเดิม
+  // (แปลว่าผู้ใช้ไม่ได้แก้เอง → สลับเป็น default ภาษาใหม่ได้) หรือถูกแก้ไปแล้ว (ต้องเก็บไว้)
+  const prevLangRef = useRef(lang);
 
   // ── Uploaded blob URL cache ──────────────────────────────────
   // uploadImage() writes to Vercel Blob storage (1GB cap on Hobby plan).
@@ -81,7 +86,10 @@ export function useCulicoidesAnalysis(lang: Lang) {
   // โชว์ loading เฉพาะช่อง AI Explanation (isExplaining) ไม่บล็อกการแสดงผลทำนาย
   // ถูกเรียกทั้งตอนรันครั้งแรก และตอนเปลี่ยน AI model / system prompt
   const runExplanation = useCallback(
-    async (pred: PredictionResult, opts?: { freshHeatmap?: boolean }) => {
+    async (
+      pred: PredictionResult,
+      opts?: { freshHeatmap?: boolean; systemPrompt?: string }
+    ) => {
       if (!imageFile) {
         setIsExplaining(false);
         return;
@@ -97,6 +105,13 @@ export function useCulicoidesAnalysis(lang: Lang) {
         const originalUrl = originalImageUrl ?? (await uploadImage(imageFile)).url;
         if (!originalImageUrl) setOriginalImageUrl(originalUrl);
 
+        // TIFF เป็นฟอร์แมตหลักของ dataset แต่เบราว์เซอร์เรนเดอร์ใน <img>/canvas ไม่ได้
+        // (data URL จาก FileReader จึงโชว์เป็นรูปแตก) — /api/upload แปลงเป็น PNG ให้แล้ว
+        // จึงสลับมาใช้ URL นั้นเป็นภาพต้นฉบับที่แสดงผลและวาด annotation ทับ
+        const renderable = LLM_SAFE_IMAGE_TYPES.has(imageFile.type);
+        const previewSrc = renderable ? imagePreview : originalUrl;
+        if (!renderable && imagePreview !== originalUrl) setImagePreview(originalUrl);
+
         // prediction ใหม่ (รันครั้งแรก / เปลี่ยนโมเดล ML) ได้ Grad-CAM ใหม่
         // จึงต้องอัปโหลด heatmap ใหม่ ไม่ใช้ cache เดิม — ส่วน regenerate
         // (เปลี่ยน AI model, prediction เดิม) ใช้ cache ต่อได้เพื่อไม่อัปโหลดซ้ำ
@@ -106,23 +121,22 @@ export function useCulicoidesAnalysis(lang: Lang) {
           : null);
         if (heatmapUrl && heatmapUrl !== heatmapImageUrl) setHeatmapImageUrl(heatmapUrl);
 
+        const L = PROMPT_PACK[lang];
         let streamed = "";
         const explainRes = await chatWithPrediction({
-          message:
-            "ช่วยอธิบายผล Explainable AI โดยเน้นลักษณะของปีกจากภาพต้นฉบับร่วมกับ heatmap ตอบ 3-5 บรรทัด",
+          message: L.explanation.request,
           ai_model: aiModel,
           mode: "explanation",
+          lang,
           prediction: toPredictionPayload(pred),
-          systemPrompt,
+          // ตอนเพิ่งสลับภาษา state systemPrompt ยังไม่อัปเดตในรอบนี้ → รับเป็น override มาแทน
+          systemPrompt: opts?.systemPrompt ?? systemPrompt,
           xai: {
-            highlightedRegions: ["กลางปีก", "ขอบปีก", "ลำตัว"],
-            confidenceDrivers: [
-              "Grad-CAM เน้นบริเวณปีกเป็นหลัก",
-              "ลักษณะบริเวณปีกสอดคล้องกับชนิดที่ทำนาย",
-            ],
+            highlightedRegions: L.xai.explanationRegions,
+            confidenceDrivers: L.xai.explanationDrivers,
             warningFlags:
               pred.confidenceLevel === "low" || pred.confidenceLevel === "ood"
-                ? ["ผลยังเป็นเบื้องต้น"]
+                ? [L.xai.preliminaryFlag]
                 : [],
           },
           images: {
@@ -140,7 +154,7 @@ export function useCulicoidesAnalysis(lang: Lang) {
 
         let annotatedImage: string | null = null;
         try {
-          if (imagePreview) {
+          if (previewSrc) {
             const annotateRes = await fetch("/api/annotate", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
@@ -165,11 +179,12 @@ export function useCulicoidesAnalysis(lang: Lang) {
                 );
               }
               annotatedImage = await drawAnnotatedWing(
-                imagePreview,
+                previewSrc,
                 null,
                 pred.species,
                 pred.confidence,
                 features,
+                lang,
               );
             }
           }
@@ -281,9 +296,29 @@ export function useCulicoidesAnalysis(lang: Lang) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mlModel]);
 
+  // เปลี่ยนภาษา UI → คำอธิบาย/แชตต้องเปลี่ยนตามด้วย ไม่ใช่แค่ตัวหนังสือบนหน้าจอ
+  // ถ้าผู้ใช้ยังไม่ได้แก้ system prompt เอง ให้สลับไป default ของภาษาใหม่ แล้วสร้างคำอธิบายใหม่
+  // (ส่ง prompt เป็น override เพราะ setState ยังไม่มีผลภายในรอบ effect นี้)
+  useEffect(() => {
+    const prev = prevLangRef.current;
+    if (prev === lang) return;
+    prevLangRef.current = lang;
+
+    const nextPrompt =
+      systemPrompt.trim() === getDefaultSystemPrompt(prev).trim()
+        ? getDefaultSystemPrompt(lang)
+        : systemPrompt;
+    if (nextPrompt !== systemPrompt) setSystemPrompt(nextPrompt);
+
+    if (!result || !imageFile) return;
+    if (result.confidenceLevel === "ood") return; // ไม่น่าจะใช่ Culicoides — ไม่ต้องอธิบาย
+    runExplanation(result, { systemPrompt: nextPrompt });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lang]);
+
   const handleResetSystemPrompt = useCallback(() => {
-    setSystemPrompt(DEFAULT_AI_SYSTEM_PROMPT);
-  }, []);
+    setSystemPrompt(getDefaultSystemPrompt(lang));
+  }, [lang]);
 
   const handleChatSend = useCallback(
     async (message: string) => {
@@ -308,23 +343,22 @@ export function useCulicoidesAnalysis(lang: Lang) {
 
         let streamed = "";
         let started = false;
+        const L = PROMPT_PACK[lang];
         const res = await chatWithPrediction({
           message,
           ai_model: aiModel,
           mode: "vision",
+          lang,
           prediction: result ? toPredictionPayload(result) : null,
           // ตัด imageUrl (base64) ออกจาก history ที่ส่งไป backend เพราะ backend ใช้แค่ content
           // และถ้าส่งไปเต็มๆ หลังสร้างภาพไปหลายรูป payload จะใหญ่เกิน Vercel function limit (FUNCTION_PAYLOAD_TOO_LARGE)
           history: [...chatMessages, nextUserMessage].map(({ role, content }) => ({ role, content })),
           xai: {
-            highlightedRegions: ["wing", "body"],
-            confidenceDrivers: [
-              "Grad-CAM เน้นบริเวณปีก",
-              "โมเดลให้คะแนนชนิดนี้สูงสุดใน top-k",
-            ],
+            highlightedRegions: L.xai.chatRegions,
+            confidenceDrivers: L.xai.chatDrivers,
             warningFlags:
               result?.confidenceLevel === "low" || result?.confidenceLevel === "ood"
-                ? ["ผลยังเป็นเบื้องต้น"]
+                ? [L.xai.preliminaryFlag]
                 : [],
           },
           images: {

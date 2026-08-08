@@ -2,6 +2,7 @@
 
 import type { MLModel, AIModel } from "@/lib/types";
 import { AI_PROVIDER_ORDER, AI_PROVIDER_LABEL } from "@/lib/types";
+import type { Lang } from "@/lib/i18n";
 import { Check } from "lucide-react";
 import {
   Select,
@@ -18,13 +19,16 @@ interface ModelSelectorProps {
   models: (MLModel | AIModel)[];
   selectedId: string;
   onSelect: (id: string) => void;
+  lang: Lang;
 }
 
 function isMLModel(m: MLModel | AIModel): m is MLModel {
   return "accuracy" in m;
 }
 
-export function ModelSelector({ label, models, selectedId, onSelect }: ModelSelectorProps) {
+export function ModelSelector({ label, models, selectedId, onSelect, lang }: ModelSelectorProps) {
+  // ชื่อโมเดล AI เป็นอังกฤษอยู่แล้ว มีแต่ฝั่ง ML ที่ต้องสลับภาษา
+  const mlName = (m: MLModel) => (lang === "en" ? m.nameEn ?? m.name : m.name);
   const mlModels = models.filter(isMLModel);
   const aiModels = models.filter((m): m is AIModel => !isMLModel(m));
 
@@ -45,7 +49,9 @@ export function ModelSelector({ label, models, selectedId, onSelect }: ModelSele
               <button
                 key={model.id}
                 onClick={() => onSelect(model.id)}
-                className={`group flex items-center gap-2.5 rounded-md border px-3 py-2 text-left transition-all duration-150 ${
+                // w-full + min-w-0: grid item ตั้งต้นเป็น min-width:auto ทำให้ปุ่มยืดตามความยาวชื่อ
+                // จนล้นขอบ sidebar (กว้างคงที่ 240px) แทนที่จะให้ชื่อโดน truncate ข้างใน
+                className={`group flex w-full min-w-0 items-center gap-2.5 rounded-md border px-3 py-2 text-left transition-all duration-150 ${
                   active
                     ? "border-accent bg-accent/10 text-foreground"
                     : "border-transparent text-muted-foreground hover:bg-secondary hover:text-foreground"
@@ -59,7 +65,7 @@ export function ModelSelector({ label, models, selectedId, onSelect }: ModelSele
                   {active && <Check className="h-2.5 w-2.5 text-accent-foreground" />}
                 </div>
                 <div className="flex flex-col min-w-0">
-                  <span className="text-xs font-medium truncate">{model.name}</span>
+                  <span className="text-xs font-medium truncate">{mlName(model)}</span>
                   <span className="font-mono text-[10px] text-muted-foreground">
                     {model.accuracy}% · {model.latency}
                   </span>

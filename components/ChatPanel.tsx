@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Send, Trash2, Bot, User, Sparkles } from "lucide-react";
 import type { ChatMessage } from "@/lib/types";
+import type { Lang } from "@/lib/i18n";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { Components } from "react-markdown";
@@ -30,6 +31,7 @@ interface ChatPanelProps {
   labels: Record<string, string>;
   isLoading: boolean;
   suggestions?: string[];
+  lang: Lang;
 }
 
 export function ChatPanel({
@@ -39,6 +41,7 @@ export function ChatPanel({
   labels,
   isLoading,
   suggestions = [],
+  lang,
 }: ChatPanelProps) {
   const [input, setInput] = useState("");
   const listRef = useRef<HTMLDivElement>(null);
@@ -134,13 +137,14 @@ export function ChatPanel({
                         rel="noopener noreferrer"
                         className="mt-1 flex items-center gap-1 text-[10px] text-accent hover:underline"
                       >
-                        เปิดรูปขนาดเต็ม ↗
+                        {lang === "th" ? "เปิดรูปขนาดเต็ม ↗" : "Open full size ↗"}
                       </a>
                     </div>
                   )}
                   {!msg.imageUrl && msg.imageError && (
                     <div className="mb-2.5 rounded-lg border border-destructive/30 bg-destructive/10 px-2.5 py-1.5 text-[11px] text-destructive">
-                      สร้างภาพไม่สำเร็จ: {msg.imageError}
+                      {lang === "th" ? "สร้างภาพไม่สำเร็จ: " : "Image generation failed: "}
+                      {msg.imageError}
                     </div>
                   )}
                   <ReactMarkdown remarkPlugins={[remarkGfm]} components={assistantMd}>

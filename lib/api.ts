@@ -1,4 +1,5 @@
 import type { PredictionResult, HistoryItem, ChatMessage } from "@/lib/types";
+import type { Lang } from "@/lib/i18n";
 
 async function getErrorMessage(res: Response, fallback: string): Promise<string> {
   const contentType = res.headers.get("content-type") || "";
@@ -66,6 +67,8 @@ export type ChatWithPredictionParams = {
   systemPrompt?: string;
   prediction?: ChatPredictionInput | null;
   mode?: "explanation" | "vision";
+  // ภาษาที่เลือกใน UI — backend ใช้เลือกชุด prompt (ไม่ส่ง = ไทย)
+  lang?: Lang;
   xai?: {
     highlightedRegions?: string[];
     confidenceDrivers?: string[];

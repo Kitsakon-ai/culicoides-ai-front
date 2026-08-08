@@ -1,3 +1,12 @@
+// ฟอร์แมตที่ทั้งเบราว์เซอร์ (<img>/canvas) และ vision LLM ทุกเจ้ารองรับ
+// dataset ของโปรเจกต์นี้เป็น TIFF ซึ่งไม่อยู่ในลิสต์ → ต้องแปลงเป็น PNG ก่อนใช้งานสองทางนั้น
+export const LLM_SAFE_IMAGE_TYPES = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/gif",
+  "image/webp",
+]);
+
 export interface MLModel {
   id: string;
   name: string;
@@ -5,6 +14,9 @@ export interface MLModel {
   accuracy: number;
   latency: string;
   description: string;
+  // ฉบับภาษาอังกฤษ — ใช้เมื่อ UI สลับเป็น EN (ไม่ระบุ = ใช้ค่าไทยเดิม)
+  nameEn?: string;
+  descriptionEn?: string;
 }
 
 export interface AIModel {
@@ -67,6 +79,7 @@ export const ML_MODELS: MLModel[] = [
     accuracy: 92.5,
     latency: "~120ms",
     description: "Transfer learning จาก ImageNet, fine-tuned สำหรับ Culicoides (Macro F1 0.9245, ROC-AUC 1.0000)",
+    descriptionEn: "Transfer learning from ImageNet, fine-tuned for Culicoides (Macro F1 0.9245, ROC-AUC 1.0000)",
   },
   {
     id: "resnet50",
@@ -75,6 +88,7 @@ export const ML_MODELS: MLModel[] = [
     accuracy: 95.0,
     latency: "~150ms",
     description: "Deep residual network — แม่นยำสูงสุดจากการทดสอบ (Macro F1 0.9495, ROC-AUC 0.9983)",
+    descriptionEn: "Deep residual network — highest accuracy in testing (Macro F1 0.9495, ROC-AUC 0.9983)",
   },
   {
     id: "densenet121",
@@ -83,14 +97,17 @@ export const ML_MODELS: MLModel[] = [
     accuracy: 87.5,
     latency: "~140ms",
     description: "Dense connections, ดีสำหรับ feature reuse (Macro F1 0.8719, ROC-AUC 0.9933)",
+    descriptionEn: "Dense connections, good for feature reuse (Macro F1 0.8719, ROC-AUC 0.9933)",
   },
   {
     id: "ensemble",
     name: "Ensemble (เปรียบเทียบ 3 โมเดล)",
+    nameEn: "Ensemble (3 models)",
     type: "Ensemble",
     accuracy: 95.0,
     latency: "~400ms",
     description: "รัน EfficientNet + ResNet + DenseNet พร้อมกัน แล้วเลือกผลที่ดีที่สุด",
+    descriptionEn: "Runs EfficientNet + ResNet + DenseNet together, then picks the best result",
   },
 ];
 

@@ -6,7 +6,7 @@ import type { Lang } from "@/lib/i18n";
 import type { CulicoidesAnalysis } from "@/hooks/useCulicoidesAnalysis";
 import { InspectorPanel } from "@/components/InspectorPanel";
 import { HistoryPanel } from "@/components/HistoryPanel";
-import { DEFAULT_AI_SYSTEM_PROMPT } from "@/lib/prompts";
+import { getDefaultSystemPrompt } from "@/lib/prompts";
 
 interface Props {
   analysis: CulicoidesAnalysis;
@@ -47,7 +47,7 @@ export function InspectorSection({ analysis, lang, t }: Props) {
         result={result}
         labels={t as unknown as Record<string, string>}
         systemPrompt={systemPrompt}
-        defaultSystemPrompt={DEFAULT_AI_SYSTEM_PROMPT}
+        defaultSystemPrompt={getDefaultSystemPrompt(lang)}
         onSystemPromptChange={setSystemPrompt}
         onResetSystemPrompt={handleResetSystemPrompt}
         onApplySystemPrompt={regenerateExplanation}

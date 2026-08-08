@@ -79,10 +79,15 @@ export function ResultsSection({ analysis, lang, t }: Props) {
         <div className="hidden print:block print:mb-6">
           <div className="flex items-center gap-2 text-lg font-bold">
             <Bug className="h-5 w-5" />
-            Culicoides AI — รายงานผลการวิเคราะห์
+            {lang === "th" ? "Culicoides AI — รายงานผลการวิเคราะห์" : "Culicoides AI — Analysis Report"}
           </div>
           <p className="mt-1 text-xs text-gray-500">
-            สร้างเมื่อ {new Date().toLocaleString("th-TH")} · โมเดล ML: {mlModel} · โมเดล AI: {selectedAiName}
+            {lang === "th" ? "สร้างเมื่อ " : "Generated "}
+            {new Date().toLocaleString(lang === "th" ? "th-TH" : "en-GB")}
+            {lang === "th" ? " · โมเดล ML: " : " · ML model: "}
+            {mlModel}
+            {lang === "th" ? " · โมเดล AI: " : " · AI model: "}
+            {selectedAiName}
           </p>
           <hr className="mt-3 border-gray-300" />
         </div>
@@ -282,6 +287,7 @@ export function ResultsSection({ analysis, lang, t }: Props) {
                 original={imagePreview}
                 heatmap={result?.heatmap}
                 gradcam={result?.gradcam}
+                lang={lang}
               />
             </div>
           )}
@@ -290,6 +296,7 @@ export function ResultsSection({ analysis, lang, t }: Props) {
             <div>
               <EnsembleChart
                 comparison={result.modelComparison}
+                lang={lang}
               />
             </div>
           )}
@@ -303,6 +310,7 @@ export function ResultsSection({ analysis, lang, t }: Props) {
               aiModel={selectedAiName}
               isLoading={isExplaining}
               annotatedImage={result?.annotatedImage}
+              lang={lang}
             />
 
             <div>
@@ -318,6 +326,7 @@ export function ResultsSection({ analysis, lang, t }: Props) {
                 highlightedProvinces={provinces}
                 species={result.species}
                 isLoading={isMapLoading}
+                lang={lang}
               />
             </div>
           </div>

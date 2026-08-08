@@ -4,12 +4,15 @@ import { useCallback, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Upload, X, ImagePlus, FileImage } from "lucide-react";
 
+import type { Lang } from "@/lib/i18n";
+
 interface ImageUploadProps {
   label: string;
   hint: string;
   onImageSelect: (file: File, preview: string) => void;
   onClear: () => void;
   preview: string | null;
+  lang: Lang;
 }
 
 function formatBytes(bytes: number) {
@@ -18,7 +21,7 @@ function formatBytes(bytes: number) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-export function ImageUpload({ label, hint, onImageSelect, onClear, preview }: ImageUploadProps) {
+export function ImageUpload({ label, hint, onImageSelect, onClear, preview, lang }: ImageUploadProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [fileMeta, setFileMeta] = useState<{ name: string; size: number } | null>(null);
 
@@ -149,7 +152,7 @@ export function ImageUpload({ label, hint, onImageSelect, onClear, preview }: Im
         className="relative flex items-center gap-1.5 rounded-md bg-accent px-4 py-2 text-xs font-medium text-accent-foreground transition-colors hover:bg-accent/90"
       >
         <Upload className="h-3.5 w-3.5" />
-        เลือกไฟล์
+        {lang === "th" ? "เลือกไฟล์" : "Browse files"}
       </button>
 
       <div className="relative flex items-center gap-1.5">

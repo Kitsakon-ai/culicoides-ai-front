@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { ComposableMap, Geographies, Geography } from "react-simple-maps";
 import { MapPin } from "lucide-react";
 
+import type { Lang } from "@/lib/i18n";
+
 // Served from /public (same-origin) instead of raw.githubusercontent.com — an
 // external runtime fetch to GitHub is fragile: privacy/ad-blocker extensions,
 // corporate/ISP filtering, or GitHub rate-limits can silently block it, leaving
@@ -118,6 +120,7 @@ interface Props {
   highlightedProvinces: string[];
   species: string;
   isLoading?: boolean;
+  lang: Lang;
 }
 
 // Reverse map: English GeoJSON name → Thai display name
@@ -125,13 +128,37 @@ const EN_TO_TH: Record<string, string> = Object.fromEntries(
   Object.entries(TH_TO_EN).map(([th, en]) => [en, th])
 );
 
-export function ThailandMap({ highlightedProvinces, species, isLoading }: Props) {
+const TEXT = {
+  th: {
+    loadingTitle: "กำลังค้นหาข้อมูลการกระจายตัว",
+    loadingHint: "วิเคราะห์จังหวัดที่คาดว่าพบชนิดนี้...",
+    distributionOf: "การกระจายตัวของ",
+    expected: (n: number) => `จังหวัดที่คาดว่าพบ (${n} จังหวัด)`,
+    found: "พบ",
+    notFound: "ไม่พบ",
+    empty: "ไม่พบข้อมูลการกระจายตัวสำหรับชนิดนี้",
+  },
+  en: {
+    loadingTitle: "Searching distribution data",
+    loadingHint: "Analysing provinces where this species is expected...",
+    distributionOf: "Distribution of",
+    expected: (n: number) => `Expected provinces (${n})`,
+    found: "Found",
+    notFound: "Not found",
+    empty: "No distribution data for this species",
+  },
+};
+
+export function ThailandMap({ highlightedProvinces, species, isLoading, lang }: Props) {
   const [tooltip, setTooltip] = useState<{ name: string; x: number; y: number } | null>(null);
   const geoFeatures = useGeoFeatures(GEO_URL);
+  const t = TEXT[lang];
   // Convert Thai names → English to match GeoJSON "name" property
   const highlighted = new Set(
     highlightedProvinces.map((th) => TH_TO_EN[th] ?? th)
   );
+  // ฐานข้อมูลเก็บชื่อจังหวัดเป็นไทยเสมอ — ตอน UI เป็น EN ค่อยแปลงตอนแสดงผล
+  const displayProvince = (th: string) => (lang === "en" ? TH_TO_EN[th] ?? th : th);
 
   if (isLoading) {
     return (
@@ -143,8 +170,8 @@ export function ThailandMap({ highlightedProvinces, species, isLoading }: Props)
           </span>
         </div>
         <div className="space-y-1.5 text-center">
-          <p className="text-lg font-semibold text-foreground">กำลังค้นหาข้อมูลการกระจายตัว</p>
-          <p className="text-sm text-muted-foreground">วิเคราะห์จังหวัดที่คาดว่าพบชนิดนี้...</p>
+          <p className="text-lg font-semibold text-foreground">{TEXT[lang].loadingTitle}</p>
+          <p className="text-sm text-muted-foreground">{TEXT[lang].loadingHint}</p>
         </div>
       </div>
     );
@@ -155,21 +182,21 @@ export function ThailandMap({ highlightedProvinces, species, isLoading }: Props)
       <div className="flex items-start justify-between">
         <div>
           <p className="text-sm font-medium text-foreground">
-            การกระจายตัวของ{" "}
+            {t.distributionOf}{" "}
             <span className="italic text-accent">Culicoides {species}</span>
           </p>
           <p className="text-xs text-muted-foreground mt-0.5">
-            จังหวัดที่คาดว่าพบ ({highlightedProvinces.length} จังหวัด)
+            {t.expected(highlightedProvinces.length)}
           </p>
         </div>
         <div className="flex items-center gap-3 text-xs text-muted-foreground">
           <span className="flex items-center gap-1">
             <span className="inline-block h-3 w-3 rounded-sm" style={{ background: "#3b82f6" }} />
-            พบ
+            {t.found}
           </span>
           <span className="flex items-center gap-1">
             <span className="inline-block h-3 w-3 rounded-sm" style={{ background: "#e5e7eb" }} />
-            ไม่พบ
+            {t.notFound}
           </span>
         </div>
       </div>
@@ -197,7 +224,7 @@ export function ThailandMap({ highlightedProvinces, species, isLoading }: Props)
                       const svgRect = svg?.getBoundingClientRect();
                       const rect = (e.target as SVGElement).getBoundingClientRect();
                       setTooltip({
-                        name: EN_TO_TH[nameEn] ?? nameEn,
+                        name: lang === "en" ? nameEn : EN_TO_TH[nameEn] ?? nameEn,
                         x: rect.left - (svgRect?.left ?? 0) + rect.width / 2,
                         y: rect.top - (svgRect?.top ?? 0),
                       });
@@ -248,16 +275,14 @@ export function ThailandMap({ highlightedProvinces, species, isLoading }: Props)
               className="flex items-center gap-1 rounded-full bg-accent/15 px-2 py-0.5 text-xs text-accent"
             >
               <MapPin className="h-2.5 w-2.5" />
-              {p}
+              {displayProvince(p)}
             </span>
           ))}
         </div>
       )}
 
       {highlightedProvinces.length === 0 && (
-        <p className="text-center text-xs text-muted-foreground py-2">
-          ไม่พบข้อมูลการกระจายตัวสำหรับชนิดนี้
-        </p>
+        <p className="text-center text-xs text-muted-foreground py-2">{t.empty}</p>
       )}
     </div>
   );

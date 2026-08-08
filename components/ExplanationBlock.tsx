@@ -6,13 +6,31 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { Components } from "react-markdown";
 
+import type { Lang } from "@/lib/i18n";
+
 interface ExplanationBlockProps {
   text: string;
   label: string;
   aiModel: string;
   isLoading?: boolean;
   annotatedImage?: string | null;
+  lang: Lang;
 }
+
+const TEXT = {
+  th: {
+    openFull: "เปิดรูปขนาดเต็ม",
+    generating: "กำลังสร้างคำอธิบายจาก AI",
+    analysing: "กำลังวิเคราะห์ภาพและ heatmap...",
+    streaming: "กำลังสร้างคำอธิบาย...",
+  },
+  en: {
+    openFull: "Open full size",
+    generating: "Generating AI explanation",
+    analysing: "is analysing the image and heatmap...",
+    streaming: "Generating explanation...",
+  },
+};
 
 const mdComponents: Components = {
   h1: ({ children }) => (
@@ -78,7 +96,16 @@ function openImageInTab(src: string) {
   window.open(url, "_blank");
 }
 
-export function ExplanationBlock({ text, label, aiModel, isLoading, annotatedImage }: ExplanationBlockProps) {
+export function ExplanationBlock({
+  text,
+  label,
+  aiModel,
+  isLoading,
+  annotatedImage,
+  lang,
+}: ExplanationBlockProps) {
+  const t = TEXT[lang];
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 8 }}
@@ -122,7 +149,7 @@ export function ExplanationBlock({ text, label, aiModel, isLoading, annotatedIma
                 className="flex items-center gap-1.5 text-[11px] text-accent hover:underline"
               >
                 <ExternalLink className="h-3 w-3" />
-                เปิดรูปขนาดเต็ม
+                {t.openFull}
               </button>
             </motion.div>
           )}
@@ -139,11 +166,10 @@ export function ExplanationBlock({ text, label, aiModel, isLoading, annotatedIma
               </span>
             </div>
             <div className="space-y-1.5 text-center">
-              <p className="text-lg font-semibold text-foreground">
-                กำลังสร้างคำอธิบายจาก AI
-              </p>
+              <p className="text-lg font-semibold text-foreground">{t.generating}</p>
               <p className="text-sm text-muted-foreground">
-                {aiModel ? `${aiModel} ` : ""}กำลังวิเคราะห์ภาพและ heatmap...
+                {aiModel ? `${aiModel} ` : ""}
+                {t.analysing}
               </p>
             </div>
             <div className="w-full max-w-md space-y-2.5 pt-1">
@@ -160,7 +186,7 @@ export function ExplanationBlock({ text, label, aiModel, isLoading, annotatedIma
             {isLoading && (
               <span className="mt-3 inline-flex items-center gap-1.5 text-xs text-accent">
                 <Loader2 className="h-3 w-3 animate-spin" />
-                กำลังสร้างคำอธิบาย...
+                {t.streaming}
               </span>
             )}
           </div>

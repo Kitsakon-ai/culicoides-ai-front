@@ -107,12 +107,14 @@ export default function Index() {
             models={ML_MODELS}
             selectedId={mlModel}
             onSelect={setMlModel}
+            lang={lang}
           />
           <ModelSelector
             label={t.selectAi}
             models={AI_MODELS}
             selectedId={aiModel}
             onSelect={setAiModel}
+            lang={lang}
           />
         </div>
       </aside>
@@ -173,7 +175,7 @@ export default function Index() {
               >
                 {ML_MODELS.map((model) => (
                   <option key={model.id} value={model.id}>
-                    {model.name}
+                    {lang === "en" ? model.nameEn ?? model.name : model.name}
                   </option>
                 ))}
               </select>

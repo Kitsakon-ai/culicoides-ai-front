@@ -3,15 +3,23 @@
 import { motion } from "framer-motion";
 import { Image as ImageIcon, Flame, Layers } from "lucide-react";
 
+import type { Lang } from "@/lib/i18n";
+
 interface GradCamCompareProps {
   original: string;
   heatmap?: string | null;
   gradcam?: string | null;
+  lang: Lang;
 }
 
-export function GradCamCompare({ original, heatmap, gradcam }: GradCamCompareProps) {
+export function GradCamCompare({ original, heatmap, gradcam, lang }: GradCamCompareProps) {
   const items = [
-    { key: "original", label: "ภาพต้นฉบับ", icon: ImageIcon, src: original },
+    {
+      key: "original",
+      label: lang === "th" ? "ภาพต้นฉบับ" : "Original image",
+      icon: ImageIcon,
+      src: original,
+    },
     { key: "heatmap", label: "Heatmap", icon: Flame, src: heatmap },
     { key: "gradcam", label: "Grad-CAM++", icon: Layers, src: gradcam },
   ].filter((item): item is { key: string; label: string; icon: typeof ImageIcon; src: string } =>

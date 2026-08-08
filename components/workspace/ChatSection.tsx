@@ -42,6 +42,7 @@ export function ChatSection({ analysis, lang, t }: Props) {
         labels={t as unknown as Record<string, string>}
         isLoading={isChatLoading}
         suggestions={suggestions}
+        lang={lang}
       />
     </div>
   );
