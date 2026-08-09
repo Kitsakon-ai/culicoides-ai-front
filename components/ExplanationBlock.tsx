@@ -77,8 +77,8 @@ const mdComponents: Components = {
   ),
   hr: () => <hr className="my-3 border-border/50" />,
   // The model has no way to attach a real image inline in this text response —
-  // the annotated wing photo above is the only real image. Drop any markdown
-  // image syntax it emits anyway instead of rendering a broken <img>.
+  // the annotated wing photo below the text is the only real image. Drop any
+  // markdown image syntax it emits anyway instead of rendering a broken <img>.
   img: () => null,
   blockquote: ({ children }) => (
     <blockquote className="border-l-2 border-accent/40 pl-3 text-sm italic text-muted-foreground my-2.5">
@@ -127,34 +127,6 @@ export function ExplanationBlock({
           )}
         </div>
 
-        {/* Annotated wing image */}
-        <AnimatePresence>
-          {annotatedImage && !isLoading && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: "auto" }}
-              exit={{ opacity: 0, height: 0 }}
-              transition={{ duration: 0.3 }}
-              className="border-t px-4 pt-3 pb-3 space-y-2"
-            >
-              <p className="label-caps text-[10px] text-muted-foreground">Wing Morphology Annotation</p>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={annotatedImage}
-                alt="Annotated wing morphology"
-                className="w-full rounded-md border object-contain"
-              />
-              <button
-                onClick={() => openImageInTab(annotatedImage)}
-                className="flex items-center gap-1.5 text-[11px] text-accent hover:underline"
-              >
-                <ExternalLink className="h-3 w-3" />
-                {t.openFull}
-              </button>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
         {/* Body: big loader while waiting for the first token; once text starts
             streaming in, show it live below with a small "typing" indicator. */}
         {isLoading && !text.trim() ? (
@@ -191,6 +163,35 @@ export function ExplanationBlock({
             )}
           </div>
         )}
+
+        {/* Annotated wing image — วางไว้ล่างสุดของการ์ด ต่อจากคำอธิบาย
+            (ภาพถูกสร้างหลัง stream ข้อความจบ จึงโผล่ต่อท้ายพอดี ไม่ดันข้อความ) */}
+        <AnimatePresence>
+          {annotatedImage && !isLoading && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.3 }}
+              className="border-t px-4 pt-3 pb-3 space-y-2"
+            >
+              <p className="label-caps text-[10px] text-muted-foreground">Wing Morphology Annotation</p>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={annotatedImage}
+                alt="Annotated wing morphology"
+                className="w-full rounded-md border object-contain"
+              />
+              <button
+                onClick={() => openImageInTab(annotatedImage)}
+                className="flex items-center gap-1.5 text-[11px] text-accent hover:underline"
+              >
+                <ExternalLink className="h-3 w-3" />
+                {t.openFull}
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </motion.div>
   );
