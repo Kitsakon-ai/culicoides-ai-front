@@ -99,6 +99,10 @@ export function useCulicoidesAnalysis(lang: Lang) {
 
       try {
         setIsExplaining(true);
+        // ล้างคำอธิบายรอบก่อนทิ้งก่อนเริ่มรอบใหม่ — ถ้าปล่อยค้างไว้ การ์ดจะโชว์
+        // ข้อความเก่าเต็ม ๆ ระหว่างรอ (loader ใหญ่ขึ้นเฉพาะตอนยังไม่มีข้อความ)
+        // ทำให้ตอนสลับภาษา/เปลี่ยนโมเดล AI ดูเหมือนไม่มีอะไรเกิดขึ้น
+        setResult((prev) => (prev ? { ...prev, explanation: "" } : prev));
 
         // Reuse the blob URLs from the original inference run instead of
         // re-uploading the same bytes every time the AI model changes.
