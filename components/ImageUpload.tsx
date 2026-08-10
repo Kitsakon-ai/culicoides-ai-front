@@ -2,9 +2,11 @@
 
 import { useCallback, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Upload, X, ImagePlus, FileImage } from "lucide-react";
+import { Upload, X, ImagePlus, FileImage, Loader2 } from "lucide-react";
 
 import type { Lang } from "@/lib/i18n";
+import { downscaleImage, MAX_UPLOAD_BYTES } from "@/lib/resize-image";
+import { toast } from "@/components/ui/sonner";
 
 interface ImageUploadProps {
   label: string;
@@ -23,18 +25,36 @@ function formatBytes(bytes: number) {
 
 export function ImageUpload({ label, hint, onImageSelect, onClear, preview, lang }: ImageUploadProps) {
   const [isDragging, setIsDragging] = useState(false);
-  const [fileMeta, setFileMeta] = useState<{ name: string; size: number } | null>(null);
+  const [isPreparing, setIsPreparing] = useState(false);
+  const [fileMeta, setFileMeta] = useState<{ name: string; size: number; note: string } | null>(null);
 
   const handleFile = useCallback(
-    (file: File) => {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        setFileMeta({ name: file.name, size: file.size });
-        onImageSelect(file, e.target?.result as string);
-      };
-      reader.readAsDataURL(file);
+    async (file: File) => {
+      setIsPreparing(true);
+      try {
+        // ย่อก่อนส่งเสมอ — กันชน request body limit 4.5 MB ของ Vercel
+        const result = await downscaleImage(file);
+        setFileMeta({ name: result.file.name, size: result.file.size, note: result.note });
+        console.log(
+          `%c[resize] ${result.resized ? "ย่อแล้ว" : "ไม่ได้ย่อ"} · ${result.note}`,
+          result.tooLarge ? "color:#ef4444" : "color:#22c55e"
+        );
+        if (result.tooLarge) {
+          toast.error(
+            lang === "th"
+              ? `ไฟล์ยังใหญ่เกิน ${(MAX_UPLOAD_BYTES / 1024 / 1024).toFixed(1)} MB (${result.note}) — เซิร์ฟเวอร์อาจปฏิเสธ ลองแปลงเป็น JPG/PNG ก่อน`
+              : `Still larger than ${(MAX_UPLOAD_BYTES / 1024 / 1024).toFixed(1)} MB (${result.note}) — the server may reject it. Convert to JPG/PNG first.`
+          );
+        }
+        onImageSelect(result.file, result.preview);
+      } catch (err) {
+        console.error("resize failed:", err);
+        toast.error(lang === "th" ? "เตรียมรูปไม่สำเร็จ" : "Could not prepare the image");
+      } finally {
+        setIsPreparing(false);
+      }
     },
-    [onImageSelect]
+    [onImageSelect, lang]
   );
 
   const handleDrop = useCallback(
@@ -42,7 +62,7 @@ export function ImageUpload({ label, hint, onImageSelect, onClear, preview, lang
       e.preventDefault();
       setIsDragging(false);
       const file = e.dataTransfer.files[0];
-      if (file) handleFile(file);
+      if (file) void handleFile(file);
     },
     [handleFile]
   );
@@ -53,7 +73,7 @@ export function ImageUpload({ label, hint, onImageSelect, onClear, preview, lang
     input.accept = ".jpg,.jpeg,.png,.tif,.tiff";
     input.onchange = (e) => {
       const file = (e.target as HTMLInputElement).files?.[0];
-      if (file) handleFile(file);
+      if (file) void handleFile(file);
     };
     input.click();
   }, [handleFile]);
@@ -69,8 +89,16 @@ export function ImageUpload({ label, hint, onImageSelect, onClear, preview, lang
             {fileMeta?.name ?? "image"}
           </span>
           {fileMeta && (
-            <span className="shrink-0 font-mono text-[10px] text-muted-foreground">
+            <span
+              className="shrink-0 font-mono text-[10px] text-muted-foreground"
+              title={fileMeta.note}
+            >
               {formatBytes(fileMeta.size)}
+            </span>
+          )}
+          {fileMeta?.note && (
+            <span className="hidden shrink-0 font-mono text-[10px] text-muted-foreground/70 sm:inline">
+              · {fileMeta.note}
             </span>
           )}
           <button
@@ -141,6 +169,12 @@ export function ImageUpload({ label, hint, onImageSelect, onClear, preview, lang
       <div className="relative space-y-1.5 text-center px-6">
         <p className="text-base font-semibold text-foreground">{label}</p>
         <p className="text-xs text-muted-foreground">{hint}</p>
+        {isPreparing && (
+          <p className="flex items-center justify-center gap-1.5 pt-1 text-xs text-accent">
+            <Loader2 className="h-3 w-3 animate-spin" />
+            {lang === "th" ? "กำลังย่อรูป..." : "Resizing image..."}
+          </p>
+        )}
       </div>
 
       <button
