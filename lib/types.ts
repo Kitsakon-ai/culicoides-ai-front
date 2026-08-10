@@ -128,11 +128,16 @@ export const AI_MODELS: AIModel[] = [
   { id: "gpt-5.6-luna",  name: "GPT-5.6 Luna",  provider: "openai" },
   { id: "gpt-4.1",      name: "GPT-4.1",       provider: "openai" },
   { id: "gpt-4.1-mini", name: "GPT-4.1 Mini",   provider: "openai" },
-  // Google Gemini — ปิดไว้ชั่วคราว (ยังเรียกใช้ไม่ได้) เอากลับมาโดยเอาคอมเมนต์ออก
-  // โค้ดฝั่ง backend (provider "gemini" ใน /api/chat, /api/annotate) ยังอยู่ครบ
-  // { id: "gemini-3.1-pro-preview", name: "Gemini 3.1 Pro (Preview)", provider: "gemini" },
-  // { id: "gemini-3.5-flash",       name: "Gemini 3.5 Flash",         provider: "gemini" },
-  // { id: "gemini-3.1-flash-lite",  name: "Gemini 3.1 Flash-Lite",    provider: "gemini" },
+  // Google Gemini
+  { id: "gemini-3.1-pro-preview",  name: "Gemini 3.1 Pro ",     provider: "gemini" },
+  { id: "gemini-3.6-flash",        name: "Gemini 3.6 Flash",             provider: "gemini" },
+  // ไม่ใส่ gemini-3.5-flash: ฝั่ง Google คืน 503 (คิวเต็ม) บ่อยจนใช้เดโม่ไม่ได้
+  // และ 3.6 Flash แทนที่ได้หมด — ใหม่กว่า input เท่ากัน output ถูกกว่า ($7.50 vs $9.00)
+  // ตัวที่มี free tier — เร็วและถูกที่สุดในตระกูล ใช้ทดสอบได้โดยไม่เสียเงิน
+  // (ตระกูล Flash ด้านบนก็มี free tier เหมือนกัน ส่วน 3.1 Pro Preview เป็นแบบจ่ายเงินอย่างเดียว)
+  { id: "gemini-3.5-flash-lite",   name: "Gemini 3.5 Flash-Lite", provider: "gemini" },
+  // ถูกที่สุดในลิสต์ทั้งหมด ($0.25/$1.50 ต่อ 1M token) — ถูกกว่า GPT-5.6 Terra ราว 8 เท่า
+  { id: "gemini-3.1-flash-lite",   name: "Gemini 3.1 Flash-Lite",        provider: "gemini" },
   // Anthropic Claude
   { id: "claude-opus-4-8",   name: "Claude Opus 4.8",   provider: "claude" },
   { id: "claude-sonnet-4-6", name: "Claude Sonnet 4.6", provider: "claude" },

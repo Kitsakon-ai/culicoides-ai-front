@@ -62,6 +62,28 @@ async function addAiCaption(png: Buffer, species?: string): Promise<Buffer> {
   }
 }
 
+// pad เป็นสี่เหลี่ยมจัตุรัสก่อน (กันโมเดลบิดสัดส่วนปีกตอน output เป็นภาพจัตุรัส)
+async function padToSquare(cropBase64: string, label: string): Promise<Buffer> {
+  try {
+    const buf = Buffer.from(cropBase64, "base64");
+    const meta = await sharp(buf).metadata();
+    const side = Math.max(meta.width ?? 1, meta.height ?? 1);
+    return await sharp(buf)
+      .resize(side, side, { fit: "contain", background: { r: 230, g: 233, b: 228 } })
+      .png()
+      .toBuffer();
+  } catch (err) {
+    console.error(`${label}: pad failed:`, err);
+    return Buffer.from(cropBase64, "base64");
+  }
+}
+
+function buildAnnotationPrompt(names: string[]): string {
+  return `Add a clean scientific annotation overlay to this Culicoides midge wing microscopy photograph.
+Draw thin black arrows with short English text labels pointing to each of these wing features where visible: ${names.join(", ")}.
+Keep the wing photograph itself unchanged and in place — only add thin arrows and short English labels on the empty background around the wing. Do not repaint or restyle the wing. Do not add any other text, numbers, or watermark.`;
+}
+
 async function annotateWithGptImage(
   cropBase64: string,
   features: WingFeature[],
@@ -73,24 +95,8 @@ async function annotateWithGptImage(
   const names = features.map((f) => f.nameEn).filter(Boolean);
   if (names.length === 0) return null;
 
-  // pad เป็นสี่เหลี่ยมจัตุรัสก่อน (กัน gpt-image บิดสัดส่วนปีกตอน output 1024x1024)
-  let squarePng: Buffer;
-  try {
-    const buf = Buffer.from(cropBase64, "base64");
-    const meta = await sharp(buf).metadata();
-    const side = Math.max(meta.width ?? 1, meta.height ?? 1);
-    squarePng = await sharp(buf)
-      .resize(side, side, { fit: "contain", background: { r: 230, g: 233, b: 228 } })
-      .png()
-      .toBuffer();
-  } catch (err) {
-    console.error("annotateWithGptImage: pad failed:", err);
-    squarePng = Buffer.from(cropBase64, "base64");
-  }
-
-  const prompt = `Add a clean scientific annotation overlay to this Culicoides midge wing microscopy photograph.
-Draw thin black arrows with short English text labels pointing to each of these wing features where visible: ${names.join(", ")}.
-Keep the wing photograph itself unchanged and in place — only add thin arrows and short English labels on the empty background around the wing. Do not repaint or restyle the wing. Do not add any other text, numbers, or watermark.`;
+  const squarePng = await padToSquare(cropBase64, "annotateWithGptImage");
+  const prompt = buildAnnotationPrompt(names);
 
   const fd = new FormData();
   fd.append("model", "gpt-image-2");
@@ -111,6 +117,59 @@ Keep the wing photograph itself unchanged and in place — only add thin arrows 
   const data = await res.json();
   const b64 = data?.data?.[0]?.b64_json as string | undefined;
   if (!b64) return null;
+
+  const captioned = await addAiCaption(Buffer.from(b64, "base64"), species);
+  return `data:image/png;base64,${captioned.toString("base64")}`;
+}
+
+// เลือก Gemini อยู่ → ต้องได้ภาพจากโมเดลของ Gemini เอง ไม่ใช่ตกไปใช้ gpt-image เงียบ ๆ
+// (Nano Banana 2 = gemini-3.1-flash-image รับภาพเข้า + prompt แล้วคืนภาพที่แก้แล้ว)
+const GEMINI_IMAGE_MODEL = "gemini-3.1-flash-image";
+
+async function annotateWithGeminiImage(
+  cropBase64: string,
+  features: WingFeature[],
+  species?: string
+): Promise<string | null> {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) return null;
+
+  const names = features.map((f) => f.nameEn).filter(Boolean);
+  if (names.length === 0) return null;
+
+  const squarePng = await padToSquare(cropBase64, "annotateWithGeminiImage");
+
+  const res = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_IMAGE_MODEL}:generateContent?key=${apiKey}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [
+          {
+            parts: [
+              { text: buildAnnotationPrompt(names) },
+              { inline_data: { mime_type: "image/png", data: squarePng.toString("base64") } },
+            ],
+          },
+        ],
+        generationConfig: { responseModalities: ["IMAGE", "TEXT"] },
+      }),
+    }
+  );
+  if (!res.ok) {
+    console.error(`/api/annotate ${GEMINI_IMAGE_MODEL} error:`, res.status, await res.text());
+    return null;
+  }
+
+  const data = await res.json();
+  const parts: { inlineData?: { mimeType: string; data: string } }[] =
+    data?.candidates?.[0]?.content?.parts ?? [];
+  const b64 = parts.find((p) => p.inlineData?.data)?.inlineData?.data;
+  if (!b64) {
+    console.error(`/api/annotate ${GEMINI_IMAGE_MODEL}: no image in response`);
+    return null;
+  }
 
   const captioned = await addAiCaption(Buffer.from(b64, "base64"), species);
   return `data:image/png;base64,${captioned.toString("base64")}`;
@@ -253,7 +312,9 @@ async function findFeaturesGemini(base64: string, mime: string, prompt: string, 
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) return null;
 
-  const model = aiModel?.startsWith("gemini") ? aiModel : "gemini-3.5-flash";
+  // ค่าตั้งต้นเมื่อผู้ใช้เลือกโมเดลค่ายอื่นอยู่ แต่เส้นทางนี้ตกมาใช้ Gemini
+  // (ไม่ใช้ gemini-3.5-flash เพราะฝั่ง Google คืน 503 บ่อย)
+  const model = aiModel?.startsWith("gemini") ? aiModel : "gemini-3.6-flash";
 
   const res = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
@@ -269,6 +330,28 @@ async function findFeaturesGemini(base64: string, mime: string, prompt: string, 
             ],
           },
         ],
+        generationConfig: {
+          // จำกัดงบเหมือนฝั่ง Claude (max_tokens 512) — เผื่อ thought token ที่กินงบเดียวกัน
+          maxOutputTokens: 2048,
+          // บังคับ JSON ตาม schema แทนการงมด้วย regex ใน parseFeatures()
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: "ARRAY",
+            items: {
+              type: "OBJECT",
+              properties: {
+                name: { type: "STRING" },
+                labelTh: { type: "STRING" },
+                labelEn: { type: "STRING" },
+                x: { type: "NUMBER" },
+                y: { type: "NUMBER" },
+              },
+              required: ["name", "labelTh", "labelEn", "x", "y"],
+            },
+          },
+          // งานชี้พิกัดจากภาพ ไม่ต้อง reasoning ยาว
+          thinkingConfig: { thinkingLevel: "minimal" },
+        },
       }),
     }
   );
@@ -279,7 +362,12 @@ async function findFeaturesGemini(base64: string, mime: string, prompt: string, 
   }
 
   const data = await res.json();
-  const text: string = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+  // รวมทุก part ที่ไม่ใช่ thought (เดิมอ่านแค่ parts[0] — เสี่ยงได้ thought แทนคำตอบ)
+  const text: string = (data?.candidates?.[0]?.content?.parts ?? [])
+    .filter((p: any) => !p?.thought)
+    .map((p: any) => p?.text)
+    .filter((t: unknown) => typeof t === "string")
+    .join("");
   return parseFeatures(text);
 }
 
@@ -358,17 +446,31 @@ export async function POST(req: Request) {
       return done({ features: [] });
     }
 
-    // วิธีหลัก: gpt-image วาด annotation ทับภาพปีกจริง (ติดป้าย AI-rendered)
+    // วิธีหลัก: โมเดลภาพวาด annotation ทับภาพปีกจริง (ติดป้าย AI-rendered)
+    // ใช้โมเดลของค่ายที่ผู้ใช้เลือกไว้ — เลือก Gemini ก็ต้องได้ภาพจาก Gemini
+    // (Claude ไม่มีโมเดลสร้างภาพ จึงใช้ gpt-image)
+    const imageProvider = resolveProvider(provider, aiModel) === "gemini" ? "gemini" : "openai";
     try {
-      const aiImage = await annotateWithGptImage(crop.base64, wingFeatures, species);
-      t.mark("gpt-image");
+      const aiImage =
+        imageProvider === "gemini"
+          ? await annotateWithGeminiImage(crop.base64, wingFeatures, species)
+          : await annotateWithGptImage(crop.base64, wingFeatures, species);
+      t.mark(`${imageProvider}-image`);
       if (aiImage) {
-        console.log(`[perf] /api/annotate payload=${(aiImage.length / 1024 / 1024).toFixed(2)}MB base64`);
-        return done({ features: [], annotatedImage: aiImage, aiRendered: true });
+        console.log(
+          `[perf] /api/annotate provider=${imageProvider} payload=${(aiImage.length / 1024 / 1024).toFixed(2)}MB base64`
+        );
+        return done({
+          features: [],
+          annotatedImage: aiImage,
+          aiRendered: true,
+          imageProvider,
+          imageModel: imageProvider === "gemini" ? GEMINI_IMAGE_MODEL : "gpt-image-2",
+        });
       }
     } catch (err) {
-      t.mark("gpt-image-failed");
-      console.error("/api/annotate gpt-image failed, falling back to coordinates:", err);
+      t.mark(`${imageProvider}-image-failed`);
+      console.error(`/api/annotate ${imageProvider} image failed, falling back to coordinates:`, err);
     }
 
     // Fallback: คืนพิกัดให้ client วาด overlay บนภาพจริง (ไม่แตะพิกเซลปีก)

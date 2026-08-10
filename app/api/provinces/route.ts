@@ -112,7 +112,19 @@ async function askGemini(aiModel: string, prompt: string): Promise<string> {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0 },
+        generationConfig: {
+          temperature: 0,
+          // บังคับให้ตอบเป็น JSON ตาม schema เหมือนฝั่ง OpenAI ที่ใช้ json_schema strict
+          // (เดิมปล่อยให้ตอบร้อยแก้วแล้วงมด้วย regex — ชื่อจังหวัดหลุดได้)
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: "OBJECT",
+            properties: { provinces: { type: "ARRAY", items: { type: "STRING" } } },
+            required: ["provinces"],
+          },
+          // งานดึงรายชื่อจากความรู้ ไม่ต้องใช้ reasoning หนัก — ประหยัด thought token
+          thinkingConfig: { thinkingLevel: "minimal" },
+        },
       }),
     }
   );

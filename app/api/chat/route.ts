@@ -238,7 +238,10 @@ async function* parseSSE(
       const { done, value } = await reader.read();
       if (done) break;
 
-      buffer += decoder.decode(value, { stream: true });
+      // OpenAI คั่น event ด้วย "\n\n" แต่ Google ใช้ "\r\n\r\n" (ทดสอบยิงจริงยืนยันแล้ว)
+      // ถ้าไม่ normalize CRLF ก่อน จะหา event ของ Gemini ไม่เจอเลยสักอัน → stream ว่างเปล่า
+      // ปลอดภัยกับเนื้อหา เพราะ JSON escape ขึ้นบรรทัดใหม่เป็น \\n อยู่แล้ว ไบต์ CR/LF จริงไม่โผล่ในสตริง
+      buffer += decoder.decode(value, { stream: true }).replace(/\r\n/g, "\n");
 
       let sep: number;
       while ((sep = buffer.indexOf("\n\n")) !== -1) {
@@ -307,7 +310,18 @@ async function* streamGemini(body: ChatBody, prompt: string): AsyncGenerator<str
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ contents: [{ parts }] }),
+      body: JSON.stringify({
+        contents: [{ parts }],
+        generationConfig: {
+          // ให้งบเท่าฝั่ง Claude (16000) — เดิมไม่ตั้งเลย ปล่อยตาม default ของ Google
+          // คำอธิบายที่สั่งให้ไล่ทุก feature + หัวข้อย่อย ยาวเกิน default ได้ง่าย
+          maxOutputTokens: 16000,
+          // Gemini 3.x เปิด thinking เป็น medium โดยปริยาย และ thought token คิดเงินเท่า output
+          // วัดจริงแล้ว: ไม่ตั้ง = คิด 579 tok ต่อคำตอบ 116 tok / ตั้ง low = 498 tok แต่ตอบยาวกว่า
+          // (thinkingBudget เป็นของรุ่น 2.x — ยิงกับ 3.x แล้วได้ 400)
+          thinkingConfig: { thinkingLevel: "low" },
+        },
+      }),
     }
   );
 
@@ -321,7 +335,18 @@ async function* streamGemini(body: ChatBody, prompt: string): AsyncGenerator<str
     throw new Error(`Gemini error ${res.status}: ${await res.text().catch(() => "")}`);
   }
 
-  yield* parseSSE(res.body, (d) => d?.candidates?.[0]?.content?.parts?.[0]?.text ?? null);
+  // เดิมอ่านแค่ parts[0].text — ถ้า Gemini ส่ง thought part มาก่อน คำตอบจริงที่อยู่ part ถัด ๆ ไป
+  // จะหายทั้งก้อนแบบเงียบ ๆ (ไม่มี error) → รวมทุก part ที่ไม่ใช่ thought แทน
+  yield* parseSSE(res.body, (d) => {
+    const parts = d?.candidates?.[0]?.content?.parts;
+    if (!Array.isArray(parts)) return null;
+    const text = parts
+      .filter((p: any) => !p?.thought)
+      .map((p: any) => p?.text)
+      .filter((t: unknown): t is string => typeof t === "string" && t.length > 0)
+      .join("");
+    return text || null;
+  });
 }
 
 // Anthropic's automated safety classifiers can refuse a request per-model
@@ -440,6 +465,18 @@ function isImageGenRequest(message: string): boolean {
   );
 }
 
+// prompt ที่การันตีว่าพูดถึงปีก Culicoides เสมอ ไม่ต้องพึ่ง LLM ช่วยเรียบเรียง
+// จำเป็นเพราะข้อความผู้ใช้อย่าง "Draw a labelled wing diagram" ไม่มีคำว่าแมลงเลย
+// ถ้าส่งดิบ ๆ โมเดลภาพจะเดาเป็น "ปีกนก" (เจอจริงมาแล้ว)
+function groundedImagePrompt(body: ChatBody): string {
+  const p = body.prediction;
+  const species = p ? `Culicoides ${p.species}` : "Culicoides";
+  return `Scientific microscopy-style illustration of the WING of ${species} — a biting midge (Diptera: Ceratopogonidae), a tiny fly 1-3 mm long.
+This is an INSECT wing: one transparent membranous wing with dark chitinous wing veins, pale and dark spot patterns on the membrane, and fine hairs (macrotrichia) on the surface and margin.
+It is NOT a bird wing: no feathers, no bones, no primaries or coverts.
+User request: ${body.message}`;
+}
+
 async function buildDALLEPrompt(
   userMessage: string,
   apiKey: string,
@@ -473,11 +510,12 @@ Rules:
         ],
       }),
     });
-    if (!res.ok) return userMessage;
+    // ล้มเหลวก็ต้องไม่ตกกลับไปใช้ข้อความดิบ ไม่งั้นได้ปีกนกเหมือนเดิม
+    if (!res.ok) return groundedImagePrompt(body);
     const data = await res.json();
-    return (data?.choices?.[0]?.message?.content as string) || userMessage;
+    return (data?.choices?.[0]?.message?.content as string) || groundedImagePrompt(body);
   } catch {
-    return userMessage;
+    return groundedImagePrompt(body);
   }
 }
 
@@ -553,10 +591,11 @@ async function generateImageGemini(prompt: string): Promise<ImageGenResult> {
 }
 
 async function generateImage(provider: string, prompt: string, body: ChatBody): Promise<ImageGenResult> {
-  if (provider === "gemini") {
-    const result = await generateImageGemini(prompt);
-    if (result.url) return result;
-  }
+  // เลือก Gemini ไว้ → ใช้โมเดลภาพของ Gemini เท่านั้น พังก็รายงานตรง ๆ
+  // (เดิม fallback ไป gpt-image เงียบ ๆ ทำให้ผู้ใช้เข้าใจผิดว่ารูปมาจาก Gemini)
+  // เดิมส่ง body.message ดิบเข้าไป ไม่มีบริบทว่าเป็นแมลง → ได้ปีกนกกลับมา
+  if (provider === "gemini") return generateImageGemini(groundedImagePrompt(body));
+  // Claude ไม่มีโมเดลสร้างภาพ → ใช้ของ OpenAI ตามเดิม (มี buildDALLEPrompt ใส่บริบทให้)
   return generateImageOpenAI(prompt, body);
 }
 
