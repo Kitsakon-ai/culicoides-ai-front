@@ -73,7 +73,18 @@ export type HistoryItem = {
   modelUsed?: string | null;
 };
 
+// ตัวแรกของลิสต์ = ค่าเริ่มต้นของ workspace (useCulicoidesAnalysis อ่าน ML_MODELS[0].id)
 export const ML_MODELS: MLModel[] = [
+  {
+    id: "ensemble",
+    name: "Ensemble (เปรียบเทียบ 3 โมเดล)",
+    nameEn: "Ensemble (3 models)",
+    type: "Ensemble",
+    accuracy: 95.0,
+    latency: "~400ms",
+    description: "รัน EfficientNet + ResNet + DenseNet พร้อมกัน แล้วเลือกผลที่ดีที่สุด",
+    descriptionEn: "Runs EfficientNet + ResNet + DenseNet together, then picks the best result",
+  },
   {
     id: "efficientnet_b0",
     name: "EfficientNet-B0",
@@ -100,16 +111,6 @@ export const ML_MODELS: MLModel[] = [
     latency: "~140ms",
     description: "Dense connections, ดีสำหรับ feature reuse (Macro F1 0.8719, ROC-AUC 0.9933)",
     descriptionEn: "Dense connections, good for feature reuse (Macro F1 0.8719, ROC-AUC 0.9933)",
-  },
-  {
-    id: "ensemble",
-    name: "Ensemble (เปรียบเทียบ 3 โมเดล)",
-    nameEn: "Ensemble (3 models)",
-    type: "Ensemble",
-    accuracy: 95.0,
-    latency: "~400ms",
-    description: "รัน EfficientNet + ResNet + DenseNet พร้อมกัน แล้วเลือกผลที่ดีที่สุด",
-    descriptionEn: "Runs EfficientNet + ResNet + DenseNet together, then picks the best result",
   },
 ];
 
