@@ -93,6 +93,7 @@ export type ChatWithPredictionResponse = {
   answer: string;
   imageUrl?: string;
   imageError?: string;
+  mapProvinces?: string[];
   fallback?: boolean;
   providerUsed?: string;
   modelUsed?: string;
@@ -131,7 +132,15 @@ export async function chatWithPrediction(
     // Image-generation requests still return JSON ({ answer, imageUrl, ... }).
     if (contentType.includes("application/json") || !res.body) {
       const data = await perfJson<ChatWithPredictionResponse>(res, perf);
-      perf.note(data.imageUrl ? "image generated" : data.imageError ? `image FAILED: ${data.imageError}` : "text only");
+      perf.note(
+        data.imageUrl
+          ? "image generated"
+          : data.imageError
+          ? `image FAILED: ${data.imageError}`
+          : data.mapProvinces
+          ? `map · ${data.mapProvinces.length} provinces`
+          : "text only"
+      );
       return data;
     }
 

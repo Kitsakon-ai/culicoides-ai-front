@@ -13,7 +13,8 @@ interface Props {
 }
 
 export function ChatSection({ analysis, lang, t }: Props) {
-  const { selectedAiName, chatMessages, handleChatSend, setChatMessages, isChatLoading } = analysis;
+  const { selectedAiName, chatMessages, handleChatSend, setChatMessages, isChatLoading, result } =
+    analysis;
 
   // ชิปคำถามแนะนำ — โชว์เฉพาะตอนแชตยังว่าง จึงเป็นที่เดียวที่บอกผู้ใช้ได้ว่ามีอะไรให้สั่งบ้าง
   // ตัวสุดท้ายเป็นคำสั่งสร้างรูป (ฟีเจอร์ที่มองไม่เห็นจาก UI เพราะต้องพิมพ์เอาเอง)
@@ -46,6 +47,7 @@ export function ChatSection({ analysis, lang, t }: Props) {
         isLoading={isChatLoading}
         suggestions={suggestions}
         lang={lang}
+        species={result?.species}
       />
     </div>
   );

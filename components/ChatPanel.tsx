@@ -7,6 +7,7 @@ import type { Lang } from "@/lib/i18n";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { Components } from "react-markdown";
+import { ThailandMap } from "@/components/ThailandMap";
 
 const assistantMd: Components = {
   p: ({ children }) => <p className="mb-2 last:mb-0 text-sm leading-relaxed">{children}</p>,
@@ -32,6 +33,8 @@ interface ChatPanelProps {
   isLoading: boolean;
   suggestions?: string[];
   lang: Lang;
+  /** ชนิดที่กำลังวิเคราะห์ — ใช้เป็นหัวข้อของแผนที่ที่แนบมาในแชต */
+  species?: string;
 }
 
 export function ChatPanel({
@@ -42,6 +45,7 @@ export function ChatPanel({
   isLoading,
   suggestions = [],
   lang,
+  species,
 }: ChatPanelProps) {
   const [input, setInput] = useState("");
   const listRef = useRef<HTMLDivElement>(null);
@@ -139,6 +143,16 @@ export function ChatPanel({
                       >
                         {lang === "th" ? "เปิดรูปขนาดเต็ม ↗" : "Open full size ↗"}
                       </a>
+                    </div>
+                  )}
+                  {/* แผนที่จริง (ไม่ใช่ ASCII จาก LLM) — จังหวัดมาจากฐานข้อมูลงานวิจัย */}
+                  {msg.mapProvinces && (
+                    <div className="mb-2.5 overflow-hidden rounded-lg border border-border/40 bg-background">
+                      <ThailandMap
+                        highlightedProvinces={msg.mapProvinces}
+                        species={species ?? ""}
+                        lang={lang}
+                      />
                     </div>
                   )}
                   {!msg.imageUrl && msg.imageError && (

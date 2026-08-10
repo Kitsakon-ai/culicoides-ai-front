@@ -57,6 +57,8 @@ export type ChatMessage = {
   content: string;
   imageUrl?: string;
   imageError?: string;
+  // ผู้ใช้ขอดูแผนที่ → แนบรายชื่อจังหวัดจากฐานข้อมูลมาให้แชตเรนเดอร์ <ThailandMap> จริง
+  mapProvinces?: string[];
 };
 
 export type HistoryItem = {

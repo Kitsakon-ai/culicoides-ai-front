@@ -441,6 +441,7 @@ export function useCulicoidesAnalysis(lang: Lang) {
             content: res.answer || streamed,
             imageUrl: res.imageUrl,
             imageError: res.imageError,
+            mapProvinces: res.mapProvinces,
           };
           if (!started) return [...prev, msg];
           const updated = [...prev];

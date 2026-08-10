@@ -10,6 +10,7 @@ import {
   buildKnowledgeContext,
   hasDocuments,
   getWingFeatures,
+  getProvincesForSpecies,
   type DocMatch,
   type WingFeature,
 } from "@/lib/knowledge";
@@ -105,6 +106,33 @@ function buildImageGenTextPrompt(body: ChatBody): string {
   const p = body.prediction;
   const species = p ? `Culicoides ${p.species}` : "Culicoides";
   return L.imageGen(species, body.message);
+}
+
+// ---- Distribution map (แผนที่จริงเรนเดอร์ฝั่ง client ไม่ใช่ ASCII จาก LLM) ----
+
+// ผู้ใช้ขอ "ดูแผนที่" หรือถามว่า "พบที่จังหวัดไหน" → ตอบพร้อมข้อมูลให้ client วาดแผนที่
+const TH_MAP_WORDS = [
+  "แผนที่", "พบที่ไหน", "พบที่จังหวัด", "จังหวัดไหน", "พบในจังหวัด",
+  "การกระจายตัว", "กระจายตัว", "แพร่กระจาย", "เจอที่ไหน",
+];
+const EN_MAP = /\b(?:map|distribution|range|which\s+provinces?|what\s+provinces?|where\s+(?:is|are|was|were|has|have|it|they|this)\b[^.?!]{0,30}?found|found\s+in\s+(?:which|what))\b/;
+
+function isMapRequest(message: string): boolean {
+  const lower = (message || "").toLowerCase();
+  if (TH_MAP_WORDS.some((k) => lower.includes(k))) return true;
+  return EN_MAP.test(lower);
+}
+
+function buildMapTextPrompt(body: ChatBody, provinces: string[]): string {
+  const L = PROMPT_PACK[resolveLang(body.lang)];
+  const p = body.prediction;
+  const species = p ? `Culicoides ${p.species}` : "Culicoides";
+  const list = provinces.length
+    ? provinces.join(", ")
+    : resolveLang(body.lang) === "en"
+    ? "(no province records in the database for this species)"
+    : "(ยังไม่มีรายงานจังหวัดของชนิดนี้ในฐานข้อมูล)";
+  return L.mapAnswer(species, list);
 }
 
 function buildVisionPrompt(body: ChatBody, knowledge: string, hasImage: boolean) {
@@ -592,6 +620,21 @@ export async function POST(req: Request) {
         imageUrl: imageResult?.url ?? undefined,
         imageError: imageResult?.error,
       }, { headers: { "Server-Timing": t.header() } });
+    }
+
+    // ขอดูแผนที่การกระจายตัว → ส่งรายชื่อจังหวัด "จากฐานข้อมูล" กลับไปให้ client
+    // เรนเดอร์ <ThailandMap> ของจริง (LLM เขียนแค่คำบรรยาย ไม่ให้วาดแผนที่เอง)
+    const species = body.prediction?.species;
+    if (species && body.mode === "vision" && isMapRequest(body.message)) {
+      const provinces = await getProvincesForSpecies(species);
+      t.mark("db-provinces");
+      const answer = await collectStream(pickStream(body, buildMapTextPrompt(body, provinces)));
+      t.mark("llm-caption");
+      t.log(`/api/chat (map, ${provinces.length} provinces)`);
+      return NextResponse.json(
+        { answer, mapProvinces: provinces },
+        { headers: { "Server-Timing": t.header() } }
+      );
     }
 
     // ดึง context จาก knowledge base (facts + RAG) ก่อนสร้าง prompt

@@ -37,6 +37,10 @@ export type PromptPack = {
 
   imageGen: (species: string, request: string) => string;
 
+  // ผู้ใช้ขอดูแผนที่การกระจายตัว — ระบบเรนเดอร์แผนที่จริงให้แล้ว
+  // LLM มีหน้าที่เขียนคำบรรยายประกอบเท่านั้น ห้ามวาดแผนที่เป็นตัวอักษร
+  mapAnswer: (species: string, provinces: string) => string;
+
   // ค่าคงที่ที่ฝั่ง client ส่งมาเป็น xai context
   xai: {
     explanationRegions: string[];
@@ -128,6 +132,17 @@ ${list}
 - ภาพที่จะได้รับจะแสดงลักษณะอะไรของ ${species}
 - ลักษณะสัณฐานวิทยาสำคัญที่ควรสังเกต
 ห้ามบอกว่าสร้างรูปไม่ได้ เพราะระบบกำลังสร้างรูปให้อยู่แล้ว`,
+
+  mapAnswer: (species, provinces) =>
+    `คุณเป็น AI ผู้ช่วยวิจัยแมลง Culicoides ผู้ใช้ขอดูแผนที่การกระจายตัวของ ${species}
+ระบบกำลังเรนเดอร์ "แผนที่ประเทศไทยของจริง" ระบายสีจังหวัดเหล่านี้ให้ผู้ใช้เห็นอยู่แล้ว: ${provinces}
+
+เขียนคำบรรยายประกอบแผนที่ 2-4 ประโยค (ภาษาไทย) ว่า:
+- ชนิดนี้มีรายงานพบในจังหวัดใดบ้าง และกระจายอยู่ภาคไหนของประเทศ
+- ข้อควรระวังในการตีความ: นี่คือ "จุดที่มีรายงานพบ" จากฐานข้อมูลงานวิจัย ไม่ใช่ขอบเขตการกระจายตัวทั้งหมดของชนิดนี้
+
+ห้ามวาดแผนที่ด้วยตัวอักษร/ASCII art ห้ามทำตาราง และห้ามบอกว่าแสดงแผนที่ไม่ได้ เพราะระบบแสดงให้แล้ว
+ห้ามเพิ่มชื่อจังหวัดที่ไม่มีในรายการข้างต้น`,
 
   xai: {
     explanationRegions: ["กลางปีก", "ขอบปีก", "ลำตัว"],
@@ -228,6 +243,17 @@ The system is already generating an image of ${species}. Write a short explanati
 - What characters of ${species} the resulting image will show
 - The key morphological features worth looking at
 Never say that you cannot create an image — the system is generating one already.`,
+
+  mapAnswer: (species, provinces) =>
+    `You are an AI research assistant for Culicoides entomology. The user asked to see the distribution map for ${species}.
+The system is already rendering a real map of Thailand with these provinces highlighted for them: ${provinces}
+
+Write a 2-4 sentence caption (in English) covering:
+- Which provinces this species has been reported from, and which regions of Thailand they fall in
+- A caveat on interpretation: these are reported occurrence records from the research database, not the species' full range
+
+Never draw a map with ASCII art or text characters, never use a table, and never say you cannot display a map — the system already displays it.
+Do not add any province that is not in the list above.`,
 
   xai: {
     explanationRegions: ["wing centre", "wing margin", "body"],
