@@ -3,6 +3,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import sharp from "sharp";
 import { getWingFeatures, type WingFeature } from "@/lib/knowledge";
 import { loadAndCropWing } from "@/lib/wing-crop";
+import { createTimer } from "@/lib/server-timing";
 
 export const runtime = "nodejs";
 // Vercel Pro (Fluid Compute) รองรับถึง 300s — gpt-image edit ~57s ต้องการ headroom
@@ -330,6 +331,12 @@ async function fallbackCoordinateAnnotate(
 }
 
 export async function POST(req: Request) {
+  const t = createTimer();
+  const done = (data: object) => {
+    t.log("/api/annotate");
+    return NextResponse.json(data, { headers: { "Server-Timing": t.header() } });
+  };
+
   try {
     const { imageUrl, aiModel, provider, species } = (await req.json()) as {
       imageUrl?: string;
@@ -339,31 +346,37 @@ export async function POST(req: Request) {
     };
 
     if (!isHttpUrl(imageUrl)) {
-      return NextResponse.json({ features: [] });
+      return done({ features: [] });
     }
 
     // ดึงชุดลักษณะปีกจริงจากฐานข้อมูล + crop ปีกให้เต็มเฟรม
     const wingFeatures = await getWingFeatures(species);
+    t.mark("db-features");
     const crop = await loadAndCropWing(imageUrl);
+    t.mark("fetch-crop");
     if (!crop) {
-      return NextResponse.json({ features: [] });
+      return done({ features: [] });
     }
 
     // วิธีหลัก: gpt-image วาด annotation ทับภาพปีกจริง (ติดป้าย AI-rendered)
     try {
       const aiImage = await annotateWithGptImage(crop.base64, wingFeatures, species);
+      t.mark("gpt-image");
       if (aiImage) {
-        return NextResponse.json({ features: [], annotatedImage: aiImage, aiRendered: true });
+        console.log(`[perf] /api/annotate payload=${(aiImage.length / 1024 / 1024).toFixed(2)}MB base64`);
+        return done({ features: [], annotatedImage: aiImage, aiRendered: true });
       }
     } catch (err) {
+      t.mark("gpt-image-failed");
       console.error("/api/annotate gpt-image failed, falling back to coordinates:", err);
     }
 
     // Fallback: คืนพิกัดให้ client วาด overlay บนภาพจริง (ไม่แตะพิกเซลปีก)
     const features = await fallbackCoordinateAnnotate(crop, wingFeatures, provider, aiModel);
-    return NextResponse.json({ features });
+    t.mark("fallback-vision");
+    return done({ features });
   } catch (err) {
     console.error("/api/annotate error:", err);
-    return NextResponse.json({ features: [] });
+    return done({ features: [] });
   }
 }

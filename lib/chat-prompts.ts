@@ -14,6 +14,11 @@ export type PromptPack = {
     // user message ของโหมด explanation (ฝั่ง client เป็นคนส่ง)
     request: string;
     mlResult: (species: string, confidencePct: string, level: string, topK: string) => string;
+    // รายการ feature ที่ถูกวาดเป็นลูกศร+ป้ายบนภาพ annotation (ดึงจากตารางเดียวกับ /api/annotate)
+    // → บังคับให้คำอธิบายครอบคลุมทุกป้าย ผู้ใช้จะได้รู้ว่าลูกศรแต่ละอันหมายถึงอะไร
+    annotatedFeatures: (list: string) => string;
+    // รูปแบบ/ไอคอนของคำตอบ ให้อ่านง่ายกว่าข้อความล้วน
+    style: string;
   };
 
   vision: {
@@ -63,9 +68,27 @@ const TH: PromptPack = {
 
   explanation: {
     request:
-      "ช่วยอธิบายผล Explainable AI โดยเน้นลักษณะของปีกจากภาพต้นฉบับร่วมกับ heatmap ตอบ 3-5 บรรทัด",
+      "ช่วยอธิบายผล Explainable AI โดยเน้นลักษณะของปีกจากภาพต้นฉบับร่วมกับ heatmap และอธิบายให้ครบทุกจุดที่มีป้ายกำกับบนภาพ annotation",
     mlResult: (species, confidencePct, level, topK) =>
       `ผล ML model: ทำนาย Culicoides ${species} (ความเชื่อมั่น ${confidencePct}%, สถานะ: ${level})${topK ? ` | topK: ${topK}` : ""}`,
+
+    annotatedFeatures: (list) => `[ป้ายกำกับบนภาพ annotation]
+ระบบวาดลูกศรชี้จุดเหล่านี้บนภาพปีกให้ผู้ใช้เห็นแล้ว (ป้ายบนภาพเป็นภาษาอังกฤษ):
+${list}
+
+บังคับ: ต้องมีหัวข้อ "จุดสังเกตบนภาพ" ที่ไล่อธิบาย "ทุกป้าย" ข้างบน ป้ายละ 1 bullet (1-2 ประโยค) โดยแต่ละข้อต้องมีครบ 3 อย่าง:
+1) ชื่อภาษาอังกฤษให้ตรงกับป้ายบนภาพเป๊ะ ๆ แล้ววงเล็บชื่อไทย
+2) มันคืออะไร / อยู่ตรงไหนของปีก
+3) ลักษณะตรงนั้นบ่งชี้ชนิดนี้อย่างไร — จุดนี้สำคัญที่สุด ห้ามบอกแค่ว่า "เห็นลวดลาย" ต้องบอกว่าลวดลายแบบนี้แยกชนิดนี้ออกจากชนิดใกล้เคียงได้อย่างไร
+ห้ามข้ามป้ายใด ๆ ถ้าจุดไหนในภาพมองไม่ชัด ให้บอกตรง ๆ ว่าเห็นไม่ชัด แต่ยังต้องอธิบายว่า feature นั้นมีความสำคัญต่อการจำแนกอย่างไร`,
+
+    style: `[รูปแบบคำตอบ]
+- จัดเป็นหัวข้อย่อย markdown "## " โดยนำหน้าด้วยอิโมจิที่สื่อความหมาย เช่น
+  "## 🔬 ผลการจำแนก" / "## 🧭 จุดสังเกตบนภาพ" / "## 🔥 Grad-CAM บอกอะไร" / "## 🏥 ความสำคัญทางการแพทย์"
+- ทุก bullet ในหัวข้อ "จุดสังเกตบนภาพ" ให้ขึ้นต้นด้วยอิโมจิที่เข้ากับ feature นั้น
+  (เช่น 🪶 ลวดลาย/ขนปีก · 📏 เส้นปีก/สัดส่วน · ⭕ เซลล์ปีก · 🎯 จุดเด่นเฉพาะชนิด · 🔍 จุดที่เห็นไม่ชัด)
+- ใช้ **ตัวหนา** กับชื่อ feature และตัวเลขสำคัญ
+- ใช้อิโมจิเฉพาะหัวข้อกับต้น bullet เท่านั้น ห้ามแทรกในเนื้อความจนรก และห้ามใส่ตาราง`,
   },
 
   vision: {
@@ -145,9 +168,27 @@ const EN: PromptPack = {
 
   explanation: {
     request:
-      "Explain the Explainable AI result, focusing on the wing characters visible in the original photograph together with the heatmap. Answer in 3-5 lines.",
+      "Explain the Explainable AI result, focusing on the wing characters visible in the original photograph together with the heatmap, and cover every feature that is labelled on the annotation image.",
     mlResult: (species, confidencePct, level, topK) =>
       `ML model result: predicted Culicoides ${species} (confidence ${confidencePct}%, status: ${level})${topK ? ` | topK: ${topK}` : ""}`,
+
+    annotatedFeatures: (list) => `[Labels drawn on the annotation image]
+The system has already drawn arrows pointing at these features on the wing photograph shown to the user:
+${list}
+
+Required: include a section "Features marked on the image" that walks through EVERY label above, one bullet each (1-2 sentences). Each bullet must contain all three of:
+1) The English name exactly as it appears on the arrow label
+2) What it is / where on the wing it sits
+3) How that character points to this species — this is the most important part. Never stop at "a wing pattern is visible"; say how this particular pattern separates this species from its close relatives.
+Do not skip any label. If a feature is not clearly visible in the photograph, say so plainly, but still explain why that feature matters for identification.`,
+
+    style: `[Answer format]
+- Structure the answer with markdown "## " subheadings, each prefixed with a meaningful emoji, e.g.
+  "## 🔬 Identification" / "## 🧭 Features marked on the image" / "## 🔥 What Grad-CAM shows" / "## 🏥 Medical importance"
+- Every bullet under the marked-features section starts with an emoji suited to that feature
+  (e.g. 🪶 pattern / macrotrichia · 📏 veins & proportions · ⭕ wing cells · 🎯 species-specific character · 🔍 unclear in this photo)
+- Use **bold** for feature names and key numbers
+- Use emoji only in headings and at the start of bullets — never sprinkle them through the prose, and do not use tables`,
   },
 
   vision: {

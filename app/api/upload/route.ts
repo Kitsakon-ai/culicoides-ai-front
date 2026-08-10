@@ -1,6 +1,7 @@
 import { put } from "@vercel/blob";
 import sharp from "sharp";
 import { LLM_SAFE_IMAGE_TYPES } from "@/lib/types";
+import { createTimer } from "@/lib/server-timing";
 
 export const runtime = "nodejs";
 
@@ -16,9 +17,11 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
+  const t = createTimer();
   try {
     const formData = await req.formData();
     const file = formData.get("file");
+    t.mark("read-form");
 
     if (!(file instanceof File)) {
       return Response.json({ error: "No file uploaded" }, { status: 400 });
@@ -35,8 +38,10 @@ export async function POST(req: Request) {
           .toBuffer();
         name = name.replace(/\.[^.]+$/, "") + ".png";
         contentType = "image/png";
+        t.mark("sharp-to-png");
       } catch (err) {
         // แปลงไม่ได้ก็อัปของเดิมไป ดีกว่าทำให้ทั้ง request ล้ม
+        t.mark("sharp-failed");
         console.error("Upload: PNG conversion failed, storing original:", err);
       }
     }
@@ -46,11 +51,18 @@ export async function POST(req: Request) {
       addRandomSuffix: true,
       contentType,
     });
+    t.mark("blob-put");
+    console.log(
+      `[perf] /api/upload in=${(file.size / 1024 / 1024).toFixed(2)}MB ${file.type || "?"} → out=${
+        (((body as Buffer).length ?? file.size) / 1024 / 1024).toFixed(2)
+      }MB ${contentType}`
+    );
+    t.log("/api/upload");
 
     return Response.json({
       url: blob.url,
       pathname: blob.pathname,
-    });
+    }, { headers: { "Server-Timing": t.header() } });
   } catch (error) {
     console.error("Upload error:", error);
     return Response.json(

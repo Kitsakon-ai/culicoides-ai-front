@@ -9,9 +9,12 @@ import {
   searchDocumentsForSpecies,
   buildKnowledgeContext,
   hasDocuments,
+  getWingFeatures,
   type DocMatch,
+  type WingFeature,
 } from "@/lib/knowledge";
 import { embedText } from "@/lib/embeddings";
+import { createTimer } from "@/lib/server-timing";
 
 export const runtime = "nodejs";
 // Streamed responses can run long (esp. explanation mode w/ large max_tokens).
@@ -74,7 +77,7 @@ function messageRefersToImage(message: string): boolean {
 const topKText = (topK?: { name: string; probability: number }[]) =>
   topK?.map((x) => `${x.name} ${(x.probability * 100).toFixed(1)}%`).join(", ") ?? "";
 
-function buildExplanationPrompt(body: ChatBody, knowledge: string) {
+function buildExplanationPrompt(body: ChatBody, knowledge: string, wingFeatures: WingFeature[]) {
   const lang = resolveLang(body.lang);
   const L = PROMPT_PACK[lang];
   const p = body.prediction;
@@ -86,7 +89,15 @@ function buildExplanationPrompt(body: ChatBody, knowledge: string) {
   const persona = body.systemPrompt?.trim() || getDefaultSystemPrompt(lang);
   const knowledgeBlock = knowledge ? `\n\n${L.grounding}\n\n${knowledge}` : "";
 
-  return `${persona}${predContext}\n\n${L.vectorDanger}${knowledgeBlock}`;
+  // ป้ายบนลูกศรมาจาก getWingFeatures() ตัวเดียวกับที่ /api/annotate ใช้วาดภาพ
+  // ส่งเข้า prompt ด้วยเพื่อให้คำอธิบายกับลูกศรในภาพพูดถึงจุดเดียวกันเสมอ
+  const featureList = wingFeatures
+    .filter((f) => f.nameEn)
+    .map((f) => `- ${f.nameEn}${f.nameTh ? ` (${f.nameTh})` : ""}${f.description ? `: ${f.description}` : ""}`)
+    .join("\n");
+  const annotatedBlock = featureList ? `\n\n${L.explanation.annotatedFeatures(featureList)}` : "";
+
+  return `${persona}${predContext}\n\n${L.vectorDanger}${annotatedBlock}${knowledgeBlock}\n\n${L.explanation.style}`;
 }
 
 function buildImageGenTextPrompt(body: ChatBody): string {
@@ -359,13 +370,46 @@ async function collectStream(gen: AsyncGenerator<string>): Promise<string> {
 
 // ---- Image generation (single URL result — not streamable) ----
 
+// ภาษาไทยไม่มี article → เทียบคำตรง ๆ พอ
+const TH_IMAGE_GEN_WORDS = [
+  "สร้างรูป", "วาดรูป", "สร้างภาพ", "วาดภาพ", "ทำรูป", "ทำภาพ",
+  "ออกแบบรูป", "เขียนรูป", "ขอรูป", "ขอภาพ",
+];
+
+const IMAGE_NOUN =
+  "(?:image|picture|pic|photo|photograph|illustration|diagram|drawing|sketch|figure|visual|view|rendering|visuali[sz]ation|graphic|artwork)s?";
+
+// ภาษาอังกฤษเทียบ substring ตรง ๆ ไม่ได้ เพราะ article คั่นกลาง —
+// "generate an image" ไม่มี substring "generate image" อยู่ในนั้น
+const EN_IMAGE_GEN = new RegExp(
+  `\\b(?:generate|create|make|produce|render|design)\\b[^.?!]{0,24}?\\b${IMAGE_NOUN}\\b`
+);
+
+// ขอแบบไม่ใช้ verb สร้าง ("I'd like a rendered image of the wing")
+const EN_WANT_IMAGE = new RegExp(
+  `\\b(?:i want|i'd like|i would like|i need|can i get|could i get|can you give me)\\b[^.?!]{0,24}?\\b${IMAGE_NOUN}\\b`
+);
+
+// "show/give me a picture" — บังคับ article ไม่ชี้เฉพาะ กัน "show me the image"
+// ที่หมายถึงภาพตัวอย่างที่แสดงอยู่แล้ว ไม่ใช่ขอให้สร้างใหม่
+const EN_SHOW_ME_IMAGE = new RegExp(
+  `\\b(?:show|give)\\s+me\\s+(?:an?|another|some)\\s+[^.?!]{0,16}?${IMAGE_NOUN}\\b`
+);
+
+// verb ที่แปลว่า "วาด" ตรงตัว → เป็นคำขอรูปแม้ไม่มีคำว่า image ตามหลัง ("draw the wing")
+// ยกเว้นสำนวนที่ไม่ได้หมายถึงการวาดจริง ("draw a conclusion")
+const EN_DRAW_VERB =
+  /\b(?:draw|sketch|illustrate)s?\b(?!\s+(?:an?\s+|the\s+)?(?:conclusion|comparison|parallel|distinction|analogy|inference))/;
+
 function isImageGenRequest(message: string): boolean {
-  const lower = message.toLowerCase();
-  return [
-    "สร้างรูป", "วาดรูป", "สร้างภาพ", "วาดภาพ", "ทำรูป", "ออกแบบรูป", "เขียนรูป",
-    "generate image", "create image", "generate picture", "create picture",
-    "make image", "draw image", "draw me", "draw a ", "draw an ",
-  ].some((k) => lower.includes(k));
+  const lower = (message || "").toLowerCase();
+  if (TH_IMAGE_GEN_WORDS.some((k) => lower.includes(k))) return true;
+  return (
+    EN_IMAGE_GEN.test(lower) ||
+    EN_WANT_IMAGE.test(lower) ||
+    EN_SHOW_ME_IMAGE.test(lower) ||
+    EN_DRAW_VERB.test(lower)
+  );
 }
 
 async function buildDALLEPrompt(
@@ -530,6 +574,7 @@ async function getKnowledgeContext(body: ChatBody): Promise<string> {
 // ---- Main handler ----
 
 export async function POST(req: Request) {
+  const t = createTimer();
   try {
     const body = (await req.json()) as ChatBody;
 
@@ -540,21 +585,29 @@ export async function POST(req: Request) {
         collectStream(pickStream(body, prompt)),
         generateImage(body.provider, body.message, body),
       ]);
+      t.mark("text+image");
+      t.log("/api/chat (imagegen)");
       return NextResponse.json({
         answer,
         imageUrl: imageResult?.url ?? undefined,
         imageError: imageResult?.error,
-      });
+      }, { headers: { "Server-Timing": t.header() } });
     }
 
     // ดึง context จาก knowledge base (facts + RAG) ก่อนสร้าง prompt
-    const knowledge = await getKnowledgeContext(body);
+    // โหมด explanation ดึงชุดลักษณะปีกมาด้วย (ชุดเดียวกับที่ /api/annotate เอาไปวาดป้ายบนลูกศร)
+    const isExplanation = body.mode !== "vision";
+    const [knowledge, wingFeatures] = await Promise.all([
+      getKnowledgeContext(body),
+      isExplanation ? getWingFeatures(body.prediction?.species) : Promise.resolve([]),
+    ]);
+    t.mark("knowledge+rag");
     // แนบรูปเฉพาะโหมด explanation (วิเคราะห์ภาพ) หรือเมื่อผู้ใช้ถามถึงรูป/ตัวอย่างนี้จริง ๆ
     // คำถามความรู้ทั่วไปในขอบเขต → ไม่แนบรูป จะได้ไม่ติดอยู่กับการบรรยายภาพ
     const attachImages = body.mode !== "vision" || messageRefersToImage(body.message);
     const prompt = body.mode === "vision"
       ? buildVisionPrompt(body, knowledge, attachImages)
-      : buildExplanationPrompt(body, knowledge);
+      : buildExplanationPrompt(body, knowledge, wingFeatures);
     const streamBody = attachImages ? body : { ...body, images: undefined };
     const gen = pickStream(streamBody, prompt);
 
@@ -572,12 +625,22 @@ export async function POST(req: Request) {
       );
     }
 
+    // token แรกจากผู้ให้บริการ = เวลาที่ LLM ใช้ "คิด" ก่อนพ่นคำแรก
+    t.mark("llm-first-token");
+
     const encoder = new TextEncoder();
     const stream = new ReadableStream<Uint8Array>({
       async start(controller) {
+        let chars = 0;
         try {
-          if (!first.done && first.value) controller.enqueue(encoder.encode(first.value));
-          for await (const chunk of gen) controller.enqueue(encoder.encode(chunk));
+          if (!first.done && first.value) {
+            chars += first.value.length;
+            controller.enqueue(encoder.encode(first.value));
+          }
+          for await (const chunk of gen) {
+            chars += chunk.length;
+            controller.enqueue(encoder.encode(chunk));
+          }
         } catch (err) {
           // Already responded 200 + started streaming — can't change status now,
           // so append a visible marker instead of failing silently.
@@ -586,15 +649,20 @@ export async function POST(req: Request) {
           controller.enqueue(encoder.encode(`\n\n⚠️ ${msg}`));
         } finally {
           controller.close();
+          // header ส่งไปตั้งแต่ก่อน stream แล้ว → เวลารวมของการ stream log ได้ที่นี่อย่างเดียว
+          t.mark("stream");
+          t.log(`/api/chat (${body.mode ?? "explanation"}, ${body.ai_model}, ${chars} chars)`);
         }
       },
     });
 
+    // header ต้องถูกส่งก่อนเริ่ม stream → มีได้แค่เฟสก่อนหน้า (knowledge + คิดจนได้ token แรก)
     return new Response(stream, {
       headers: {
         "Content-Type": "text/plain; charset=utf-8",
         "Cache-Control": "no-cache, no-transform",
         "X-Accel-Buffering": "no",
+        "Server-Timing": t.header(),
       },
     });
   } catch (error) {

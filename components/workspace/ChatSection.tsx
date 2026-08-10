@@ -15,10 +15,13 @@ interface Props {
 export function ChatSection({ analysis, lang, t }: Props) {
   const { selectedAiName, chatMessages, handleChatSend, setChatMessages, isChatLoading } = analysis;
 
+  // ชิปคำถามแนะนำ — โชว์เฉพาะตอนแชตยังว่าง จึงเป็นที่เดียวที่บอกผู้ใช้ได้ว่ามีอะไรให้สั่งบ้าง
+  // ตัวสุดท้ายเป็นคำสั่งสร้างรูป (ฟีเจอร์ที่มองไม่เห็นจาก UI เพราะต้องพิมพ์เอาเอง)
+  // ข้อความต้องตรงกับตัวดักเจตนา isImageGenRequest() ใน /api/chat
   const suggestions =
     lang === "th"
-      ? ["ลักษณะเด่นของชนิดนี้คืออะไร", "พบในจังหวัดไหนบ้าง", "เป็นพาหะนำโรคอะไร", "Grad-CAM บอกอะไรเรา"]
-      : ["Key wing features?", "Which provinces is it found in?", "What diseases does it transmit?", "What does Grad-CAM show?"];
+      ? ["ลักษณะเด่นของชนิดนี้คืออะไร", "พบในจังหวัดไหนบ้าง", "เป็นพาหะนำโรคอะไร", "Grad-CAM บอกอะไรเรา", "วาดภาพปีกแบบมีป้ายกำกับ"]
+      : ["Key wing features?", "Which provinces is it found in?", "What diseases does it transmit?", "What does Grad-CAM show?", "Draw a labelled wing diagram"];
 
   return (
     <div className="space-y-3">

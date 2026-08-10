@@ -43,7 +43,7 @@ export const TEXT: Record<Lang, Record<string, string>> = {
     uploadHint: "Drag & drop or click to select (JPG, PNG, TIFF)",
     selectMl: "ML Model",
     selectAi: "AI Model",
-    runInference: "Run Inference",
+    runInference: "Analysis",
     results: "Results",
     species: "Species",
     genus: "Genus",

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import type { ModelComparisonEntry } from "@/lib/types";
+import { createTimer } from "@/lib/server-timing";
 
 export const runtime = "nodejs";
 // ปลุก HF Space + inference (ensemble = 3 เรียก) อาจนาน — Vercel Pro รองรับถึง 300s
@@ -31,14 +32,17 @@ async function callFastAPI(file: File, mlModel: string) {
 }
 
 export async function POST(req: Request) {
+  const t = createTimer();
   try {
     const formData = await req.formData();
     const file = formData.get("file") as File | null;
     const mlModel = (formData.get("ml_model") as string) || "efficientnet_b0";
+    t.mark("read-form");
 
     if (!file) {
       return NextResponse.json({ error: "No file uploaded" }, { status: 400 });
     }
+    console.log(`[perf] /api/predict input=${file.name} ${(file.size / 1024 / 1024).toFixed(2)}MB model=${mlModel}`);
 
     // ── Ensemble mode ──────────────────────────────────────────
     if (mlModel === "ensemble") {
@@ -47,6 +51,7 @@ export async function POST(req: Request) {
           callFastAPI(file, m).then((data) => ({ modelId: m as string, data }))
         )
       );
+      t.mark("fastapi-ensemble-x3");
 
       const successes = settled
         .filter((r): r is PromiseFulfilledResult<{ modelId: string; data: any }> =>
@@ -86,13 +91,15 @@ export async function POST(req: Request) {
           modelUsed: "ensemble",
         },
       });
+      t.mark("db-insert");
+      t.log("/api/predict (ensemble)");
 
       return NextResponse.json({
         ...winner.data,
         modelUsed: "ensemble",
         bestModel: winner.modelId,
         modelComparison,
-      });
+      }, { headers: { "Server-Timing": t.header() } });
     }
 
     // ── Single model mode ──────────────────────────────────────
@@ -115,6 +122,7 @@ export async function POST(req: Request) {
     }
 
     const data = await fastapiRes.json();
+    t.mark("fastapi");
 
     await prisma.prediction.create({
       data: {
@@ -127,8 +135,12 @@ export async function POST(req: Request) {
         modelUsed: mlModel,
       },
     });
+    t.mark("db-insert");
+    // gradcam กลับมาเป็น base64 data URL — ตัวเลขนี้เทียบกับลิมิต response 4.5 MB ของ Vercel
+    console.log(`[perf] /api/predict gradcam=${((data.gradcam?.length ?? 0) / 1024 / 1024).toFixed(2)}MB base64`);
+    t.log("/api/predict");
 
-    return NextResponse.json(data);
+    return NextResponse.json(data, { headers: { "Server-Timing": t.header() } });
   } catch (error) {
     console.error("POST /api/predict error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

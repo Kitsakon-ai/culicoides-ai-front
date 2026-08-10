@@ -21,9 +21,19 @@ import {
   resolveAiProvider,
 } from "@/lib/api";
 import { drawAnnotatedWing } from "@/lib/annotate";
+import type { AnnotatedFeature } from "@/app/api/annotate/route";
 import { getDefaultSystemPrompt } from "@/lib/prompts";
 import { PROMPT_PACK } from "@/lib/chat-prompts";
 import { toPredictionPayload, friendlyChatErrorMessage } from "@/lib/prediction-format";
+import {
+  perfBeginRun,
+  perfEnsureRun,
+  perfEndRun,
+  perfMeta,
+  perfCall,
+  perfJson,
+  bodyBytes,
+} from "@/lib/perf";
 import { toast } from "@/components/ui/sonner";
 
 export type NavSection = "upload" | "results" | "chat" | "inspector";
@@ -96,6 +106,9 @@ export function useCulicoidesAnalysis(lang: Lang) {
       }
 
       const requestId = ++explanationRequestId.current;
+      // เรียกจาก handleRunInference → ต่อท้าย run เดิม / เรียกเดี่ยว (สลับภาษา,
+      // เปลี่ยนโมเดล AI, apply prompt) → เปิด run ใหม่ให้เอง
+      perfEnsureRun("explanation", { aiModel, lang, species: pred.species });
 
       try {
         setIsExplaining(true);
@@ -159,22 +172,35 @@ export function useCulicoidesAnalysis(lang: Lang) {
         let annotatedImage: string | null = null;
         try {
           if (previewSrc) {
-            const annotateRes = await fetch("/api/annotate", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
+            annotatedImage = await perfCall(`annotate [${pred.species}]`, async (perf) => {
+              const body = JSON.stringify({
                 imageUrl: originalUrl,
                 aiModel,
                 provider: resolveAiProvider(aiModel),
                 species: pred.species,
-              }),
-            });
-            const { features, annotatedImage: aiImage } = await annotateRes.json();
-            if (aiImage) {
-              // gpt-image วาด annotation มาเป็นภาพสำเร็จแล้ว (ติดป้าย AI-rendered ในตัว) ใช้ได้เลย
-              annotatedImage = aiImage;
-            } else {
+              });
+              perf.req(bodyBytes(body));
+
+              const annotateRes = await fetch("/api/annotate", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body,
+              });
+              perf.lap("ttfb");
+
+              const { features, annotatedImage: aiImage } = await perfJson<{
+                features: AnnotatedFeature[];
+                annotatedImage?: string;
+              }>(annotateRes, perf);
+
+              if (aiImage) {
+                // gpt-image วาด annotation มาเป็นภาพสำเร็จแล้ว (ติดป้าย AI-rendered ในตัว) ใช้ได้เลย
+                perf.note(`gpt-image · ${(aiImage.length / 1024 / 1024).toFixed(2)} MB base64`);
+                return aiImage;
+              }
+
               // fallback: วาด overlay พิกัดทับภาพจริงเอง
+              perf.note(`fallback overlay · ${features.length} features`);
               if (features.length === 0) {
                 toast.info(
                   lang === "th"
@@ -182,7 +208,7 @@ export function useCulicoidesAnalysis(lang: Lang) {
                     : "AI couldn't automatically pinpoint features on this image"
                 );
               }
-              annotatedImage = await drawAnnotatedWing(
+              const drawn = await drawAnnotatedWing(
                 previewSrc,
                 null,
                 pred.species,
@@ -190,7 +216,9 @@ export function useCulicoidesAnalysis(lang: Lang) {
                 features,
                 lang,
               );
-            }
+              perf.lap("canvas-draw");
+              return drawn;
+            });
           }
         } catch {
           // annotation is optional — silently skip on failure
@@ -213,7 +241,11 @@ export function useCulicoidesAnalysis(lang: Lang) {
         // ล้างรูป annotation ของรอบก่อนทิ้งด้วย — กันภาพเก่าค้างข้าง error สด
         setResult((prev) => (prev ? { ...prev, explanation: message, annotatedImage: null } : prev));
       } finally {
-        if (explanationRequestId.current === requestId) setIsExplaining(false);
+        if (explanationRequestId.current === requestId) {
+          setIsExplaining(false);
+          // explanation เป็นขั้นสุดท้ายของทุก run เสมอ → ปิด run ตรงนี้ที่เดียว
+          perfEndRun();
+        }
       }
     },
     [imageFile, aiModel, systemPrompt, imagePreview, lang, originalImageUrl, heatmapImageUrl]
@@ -235,6 +267,15 @@ export function useCulicoidesAnalysis(lang: Lang) {
   const handleRunInference = useCallback(async () => {
     if (!imageFile) return;
 
+    perfBeginRun("inference", {
+      mlModel,
+      aiModel,
+      lang,
+      file: imageFile.name,
+      fileMB: +(imageFile.size / 1024 / 1024).toFixed(2),
+      fileType: imageFile.type || "unknown",
+    });
+
     // ── Phase 1: CNN + Grad-CAM++ (เร็ว) ───────────────────────
     // ตอบผลทำนายกลับมาแล้วโชว์ทันที ไม่รอ LLM — ถ้า LLM ล่ม/timeout
     // ผลทายที่ได้แล้วจะยังอยู่ ไม่หายไปทั้งก้อน
@@ -249,7 +290,11 @@ export function useCulicoidesAnalysis(lang: Lang) {
       setIsAnalyzing(false);
     }
 
-    if (!data) return;
+    if (!data) {
+      perfEndRun();
+      return;
+    }
+    perfMeta({ species: data.species, confidence: data.confidence, level: data.confidenceLevel });
 
     // แสดง species + heatmap + confidence ทันที แล้วสลับไปหน้าผลลัพธ์
     // ตั้ง isExplaining ตั้งแต่ตรงนี้ กันจอ AI Explanation กระพริบก่อน phase 2 เริ่ม
@@ -266,6 +311,8 @@ export function useCulicoidesAnalysis(lang: Lang) {
     if (data.confidenceLevel === "ood") {
       setIsExplaining(false);
       setProvinces([]);
+      // ไม่เข้า phase 2 → ไม่มี explanation มาปิด run ให้ ต้องปิดเองตรงนี้
+      perfEndRun();
       return;
     }
 
@@ -329,6 +376,7 @@ export function useCulicoidesAnalysis(lang: Lang) {
       const nextUserMessage = { role: "user" as const, content: message };
       setChatMessages((prev) => [...prev, nextUserMessage]);
       setIsChatLoading(true);
+      perfBeginRun("chat", { aiModel, lang, message, historyLen: chatMessages.length });
 
       try {
         // Reuse the cached blob URLs from the original inference run instead
@@ -406,6 +454,7 @@ export function useCulicoidesAnalysis(lang: Lang) {
         setChatMessages((prev) => [...prev, { role: "assistant", content }]);
       } finally {
         setIsChatLoading(false);
+        perfEndRun();
       }
     },
     [aiModel, result, chatMessages, imageFile, lang, originalImageUrl, heatmapImageUrl]

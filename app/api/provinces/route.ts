@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { getProvincesForSpecies } from "@/lib/knowledge";
+import { createTimer } from "@/lib/server-timing";
 
 export const runtime = "nodejs";
 // Vercel Pro (Fluid Compute) — up to 300s (DB-first เร็ว, เผื่อ LLM fallback ช้า)
@@ -174,6 +175,7 @@ async function askClaude(aiModel: string, prompt: string): Promise<string> {
 }
 
 export async function POST(req: Request) {
+  const t = createTimer();
   try {
     const body = (await req.json()) as ProvincesBody;
     const { species, ai_model } = body;
@@ -181,8 +183,13 @@ export async function POST(req: Request) {
     // ── DB first: จังหวัดจริงจากฐานข้อมูล (แม่น/เร็ว/ไม่มโน/ไม่โดน LLM refuse) ──
     // ถ้าชนิดนี้ยังไม่มีในฐานข้อมูล → fallback ไปถาม LLM (ของเดิม) ด้านล่าง
     const dbProvinces = await getProvincesForSpecies(species);
+    t.mark("db");
     if (dbProvinces.length > 0) {
-      return NextResponse.json({ provinces: dbProvinces });
+      t.log("/api/provinces (db hit)");
+      return NextResponse.json(
+        { provinces: dbProvinces },
+        { headers: { "Server-Timing": t.header() } }
+      );
     }
 
     const prompt = `คุณเป็นผู้เชี่ยวชาญด้านกีฏวิทยาในประเทศไทย
@@ -206,9 +213,11 @@ export async function POST(req: Request) {
         ? await askClaude(ai_model, prompt)
         : await askGemini(ai_model, prompt);
 
+    t.mark(`llm-${provider}`);
     const provinces = extractJsonArray(raw);
+    t.log(`/api/provinces (llm ${ai_model})`);
 
-    return NextResponse.json({ provinces });
+    return NextResponse.json({ provinces }, { headers: { "Server-Timing": t.header() } });
   } catch (error) {
     console.error("POST /api/provinces error:", error);
     return NextResponse.json({ provinces: [] }, { status: 500 });

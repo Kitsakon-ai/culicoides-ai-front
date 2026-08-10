@@ -1,5 +1,6 @@
 import type { PredictionResult, HistoryItem, ChatMessage } from "@/lib/types";
 import type { Lang } from "@/lib/i18n";
+import { perfCall, perfJson, bodyBytes } from "@/lib/perf";
 
 async function getErrorMessage(res: Response, fallback: string): Promise<string> {
   const contentType = res.headers.get("content-type") || "";
@@ -24,30 +25,37 @@ export async function predictImage(
   file: File,
   mlModel: string
 ): Promise<PredictionResult> {
-  const formData = new FormData();
-  formData.append("file", file);
-  formData.append("ml_model", mlModel);
+  return perfCall(`predict [${mlModel}]`, async (perf) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("ml_model", mlModel);
+    perf.req(bodyBytes(formData));
+    perf.note(`${file.name} ${file.type || "?"}`);
 
-  const res = await fetch("/api/predict", {
-    method: "POST",
-    body: formData,
-    cache: "no-store",
-  });
+    const res = await fetch("/api/predict", {
+      method: "POST",
+      body: formData,
+      cache: "no-store",
+    });
+    perf.lap("ttfb");
 
-  if (!res.ok) {
-    const message = await getErrorMessage(res, "Prediction failed");
+    if (!res.ok) {
+      const message = await getErrorMessage(res, "Prediction failed");
 
-    if (
-      message.includes("insufficient_quota") ||
-      message.toLowerCase().includes("quota")
-    ) {
-      throw new Error("โควต้าการใช้งานเต็มแล้ว กรุณาลองใหม่ภายหลัง");
+      if (
+        message.includes("insufficient_quota") ||
+        message.toLowerCase().includes("quota")
+      ) {
+        throw new Error("โควต้าการใช้งานเต็มแล้ว กรุณาลองใหม่ภายหลัง");
+      }
+
+      throw new Error(message);
     }
 
-    throw new Error(message);
-  }
-
-  return res.json();
+    const data = await perfJson<PredictionResult>(res, perf);
+    perf.note(`${data.species} ${(data.confidence * 100).toFixed(1)}% (${data.confidenceLevel})`);
+    return data;
+  });
 }
 
 export type ChatPredictionInput = Pick<
@@ -95,94 +103,126 @@ export async function chatWithPrediction(
   onToken?: (chunk: string) => void
 ): Promise<ChatWithPredictionResponse> {
   const provider = resolveAiProvider(payload.ai_model);
+  const mode = payload.mode ?? "explanation";
 
-  const res = await fetch("/api/chat", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      ...payload,
-      provider,
-    }),
-    cache: "no-store",
-  });
+  return perfCall(`chat:${mode} [${payload.ai_model}]`, async (perf) => {
+    const body = JSON.stringify({ ...payload, provider });
+    perf.req(bodyBytes(body));
+    perf.note(`lang=${payload.lang ?? "th"}`);
 
-  if (!res.ok) {
-    const message = await getErrorMessage(res, "Chat failed");
-    throw new Error(message);
-  }
+    const res = await fetch("/api/chat", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body,
+      cache: "no-store",
+    });
+    // ttfb = เวลาที่ backend ใช้ก่อนเริ่มตอบ (โหลด knowledge base + ต่อ LLM)
+    perf.lap("ttfb");
 
-  const contentType = res.headers.get("content-type") || "";
-
-  // Image-generation requests still return JSON ({ answer, imageUrl, ... }).
-  if (contentType.includes("application/json") || !res.body) {
-    return res.json();
-  }
-
-  // Streamed text/plain — read incrementally and forward each chunk to onToken.
-  const reader = res.body.getReader();
-  const decoder = new TextDecoder();
-  let answer = "";
-
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    const chunk = decoder.decode(value, { stream: true });
-    if (chunk) {
-      answer += chunk;
-      onToken?.(chunk);
+    if (!res.ok) {
+      const message = await getErrorMessage(res, "Chat failed");
+      throw new Error(message);
     }
-  }
-  answer += decoder.decode(); // flush any trailing multi-byte character
 
-  return { answer };
+    const contentType = res.headers.get("content-type") || "";
+
+    // Image-generation requests still return JSON ({ answer, imageUrl, ... }).
+    if (contentType.includes("application/json") || !res.body) {
+      const data = await perfJson<ChatWithPredictionResponse>(res, perf);
+      perf.note(data.imageUrl ? "image generated" : data.imageError ? `image FAILED: ${data.imageError}` : "text only");
+      return data;
+    }
+
+    // Streamed text/plain — read incrementally and forward each chunk to onToken.
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let answer = "";
+    let chunks = 0;
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      const chunk = decoder.decode(value, { stream: true });
+      if (chunk) {
+        // ttft = token แรกโผล่บนจอ (ตัวเลขที่ผู้ใช้รู้สึกว่า "เริ่มตอบแล้ว")
+        if (chunks === 0) perf.lap("ttft");
+        chunks++;
+        answer += chunk;
+        onToken?.(chunk);
+      }
+    }
+    answer += decoder.decode(); // flush any trailing multi-byte character
+
+    perf.res(new Blob([answer]).size);
+    perf.server(res.headers.get("server-timing"));
+    perf.note(`${answer.length} chars / ${chunks} chunks`);
+    return { answer };
+  });
 }
 
 export async function getHistory(limit = 20): Promise<{ items: HistoryItem[] }> {
-  const res = await fetch(`/api/predictions?limit=${limit}`, {
-    cache: "no-store",
+  return perfCall("history", async (perf) => {
+    const res = await fetch(`/api/predictions?limit=${limit}`, {
+      cache: "no-store",
+    });
+    perf.lap("ttfb");
+
+    if (!res.ok) {
+      throw new Error("Failed to fetch history");
+    }
+
+    return perfJson<{ items: HistoryItem[] }>(res, perf);
   });
-
-  if (!res.ok) {
-    throw new Error("Failed to fetch history");
-  }
-
-  return res.json();
 }
 
 export async function uploadImage(
   file: File
 ): Promise<{ url: string; pathname: string }> {
-  const formData = new FormData();
-  formData.append("file", file);
+  return perfCall(`upload [${file.name}]`, async (perf) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    perf.req(bodyBytes(formData));
+    // ขนาดนี้เทียบกับลิมิต request body ของ Vercel ที่ 4.5 MB ได้เลย
+    perf.note(`${file.type || "?"} ${(file.size / 1024 / 1024).toFixed(2)} MB`);
 
-  const res = await fetch("/api/upload", {
-    method: "POST",
-    body: formData,
-    cache: "no-store",
+    const res = await fetch("/api/upload", {
+      method: "POST",
+      body: formData,
+      cache: "no-store",
+    });
+    perf.lap("ttfb");
+
+    if (!res.ok) {
+      throw new Error(await getErrorMessage(res, "Upload failed"));
+    }
+
+    return perfJson<{ url: string; pathname: string }>(res, perf);
   });
-
-  if (!res.ok) {
-    throw new Error(await getErrorMessage(res, "Upload failed"));
-  }
-
-  return res.json();
 }
 
 export async function getProvinces(
   species: string,
   aiModel: string
 ): Promise<{ provinces: string[] }> {
-  const res = await fetch("/api/provinces", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ species, ai_model: aiModel }),
-    cache: "no-store",
-  });
+  return perfCall(`provinces [${species}]`, async (perf) => {
+    const body = JSON.stringify({ species, ai_model: aiModel });
+    perf.req(bodyBytes(body));
 
-  if (!res.ok) return { provinces: [] };
-  return res.json();
+    const res = await fetch("/api/provinces", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body,
+      cache: "no-store",
+    });
+    perf.lap("ttfb");
+
+    if (!res.ok) return { provinces: [] };
+    const data = await perfJson<{ provinces: string[] }>(res, perf);
+    perf.note(`${data.provinces.length} จังหวัด`);
+    return data;
+  });
 }
 
 export function dataUrlToFile(dataUrl: string, filename: string): File {

@@ -1,5 +1,6 @@
 "use client";
 
+import { isValidElement, type ReactNode } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Sparkles, Loader2, ExternalLink } from "lucide-react";
 import ReactMarkdown from "react-markdown";
@@ -32,17 +33,27 @@ const TEXT = {
   },
 };
 
+// AI ถูกสั่งให้ขึ้นต้นหัวข้อ/bullet ด้วยอิโมจิ (ดู explanation.style ใน chat-prompts)
+// bullet ที่มีอิโมจินำอยู่แล้วไม่ต้องมีจุดกลมอีก จะได้ไม่เป็นสัญลักษณ์ซ้อนสัญลักษณ์
+const EMOJI_START = /^\p{Extended_Pictographic}/u;
+
+function leadingText(node: ReactNode): string {
+  if (typeof node === "string") return node;
+  if (typeof node === "number") return String(node);
+  if (Array.isArray(node)) return node.length ? leadingText(node[0]) : "";
+  if (isValidElement(node)) return leadingText((node.props as { children?: ReactNode }).children);
+  return "";
+}
+
+const sectionHeading = (children: ReactNode) => (
+  <p className="mt-5 mb-2.5 first:mt-0 flex items-center gap-2 rounded-md bg-accent/5 px-2.5 py-1.5 text-sm font-semibold text-foreground ring-1 ring-accent/15">
+    {children}
+  </p>
+);
+
 const mdComponents: Components = {
-  h1: ({ children }) => (
-    <p className="mt-5 mb-2 first:mt-0 text-sm font-semibold text-foreground border-l-2 border-accent pl-2">
-      {children}
-    </p>
-  ),
-  h2: ({ children }) => (
-    <p className="mt-5 mb-2 first:mt-0 text-sm font-semibold text-foreground border-l-2 border-accent pl-2">
-      {children}
-    </p>
-  ),
+  h1: ({ children }) => sectionHeading(children),
+  h2: ({ children }) => sectionHeading(children),
   h3: ({ children }) => (
     <p className="mt-3 mb-1.5 first:mt-0 text-xs font-semibold text-muted-foreground">
       {children}
@@ -63,12 +74,15 @@ const mdComponents: Components = {
       {children}
     </ol>
   ),
-  li: ({ children }) => (
-    <li className="flex items-start gap-2 text-sm leading-relaxed text-foreground">
-      <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-accent/50" />
-      <span className="flex-1">{children}</span>
-    </li>
-  ),
+  li: ({ children }) => {
+    const emojiLed = EMOJI_START.test(leadingText(children).trimStart());
+    return (
+      <li className="flex items-start gap-2 text-sm leading-relaxed text-foreground">
+        {!emojiLed && <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-accent/50" />}
+        <span className="flex-1">{children}</span>
+      </li>
+    );
+  },
   strong: ({ children }) => (
     <strong className="font-semibold text-foreground">{children}</strong>
   ),
