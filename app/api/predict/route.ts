@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import type { ModelComparisonEntry } from "@/lib/types";
 import { createTimer } from "@/lib/server-timing";
+import { withConfidenceLevel } from "@/lib/confidence";
 
 export const runtime = "nodejs";
 // ปลุก HF Space + inference (ensemble = 3 เรียก) อาจนาน — Vercel Pro รองรับถึง 300s
@@ -28,7 +29,9 @@ async function callFastAPI(file: File, mlModel: string) {
     cache: "no-store",
   });
   if (!res.ok) throw new Error(`${mlModel} failed: ${res.status}`);
-  return res.json();
+  // จัดระดับความเชื่อมั่นด้วยเกณฑ์ของเราเอง (lib/confidence.ts) ตั้งแต่ประตูทางเข้า
+  // ทุกปลายทางหลังจากนี้ — เลือกผู้ชนะ ensemble, บันทึก DB, UI, prompt — จึงใช้เกณฑ์ชุดเดียวกัน
+  return withConfidenceLevel(await res.json());
 }
 
 export async function POST(req: Request) {
@@ -121,7 +124,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const data = await fastapiRes.json();
+    const data = withConfidenceLevel(await fastapiRes.json());
     t.mark("fastapi");
 
     await prisma.prediction.create({

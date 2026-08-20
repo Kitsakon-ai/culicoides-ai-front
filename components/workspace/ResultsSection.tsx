@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 
 import type { Lang } from "@/lib/i18n";
+import { CONFIDENCE_LOW } from "@/lib/confidence";
 import type { CulicoidesAnalysis } from "@/hooks/useCulicoidesAnalysis";
 import { GradCamCompare } from "@/components/GradCamCompare";
 import { ResultsPanel } from "@/components/ResultsPanel";
@@ -153,17 +154,15 @@ export function ResultsSection({ analysis, lang, t }: Props) {
             </div>
 
             <div className="space-y-2">
-              <h2 className="text-2xl font-semibold text-foreground">
-                {lang === "th" ? "ไม่น่าจะใช่ Culicoides" : "Probably not a Culicoides"}
-              </h2>
+              <h2 className="text-2xl font-semibold text-foreground">{t.oodTitle}</h2>
               <p className="mx-auto max-w-md text-sm leading-relaxed text-muted-foreground">
-                {lang === "th"
-                  ? "โมเดลไม่มั่นใจว่าภาพนี้เป็นปีกริ้น Culicoides จึงไม่แสดงผลการจำแนก — ลองอัปโหลดภาพปีกที่ชัดและเต็มเฟรมขึ้น"
-                  : "The model isn't confident this is a Culicoides wing, so no identification is shown — try a clearer, well-framed wing image."}
+                {t.oodHint}
               </p>
               {result && (
                 <p className="text-xs text-muted-foreground/70">
                   {lang === "th" ? "ความเชื่อมั่น" : "Confidence"} {(result.confidence * 100).toFixed(1)}%
+                  {" · "}
+                  {lang === "th" ? "ต่ำกว่าเกณฑ์" : "below threshold"} {(CONFIDENCE_LOW * 100).toFixed(0)}%
                 </p>
               )}
             </div>
@@ -187,6 +186,27 @@ export function ResultsSection({ analysis, lang, t }: Props) {
           </motion.div>
         ) : (
         <>
+          {/* ช่วง 70–85%: แสดงผลตามปกติ แต่ต้องบอกผู้ใช้ว่าอย่าเพิ่งเชื่อสนิท */}
+          {result.confidenceLevel === "low" && (
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3, ease: [0.2, 0, 0, 1] }}
+              className="flex items-start gap-3 rounded-xl border border-warning/30 bg-warning/10 px-4 py-3"
+            >
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
+              <div className="space-y-0.5">
+                <p className="text-sm font-medium text-foreground">
+                  {t.lowConfidenceTitle}
+                  <span className="ml-1.5 font-mono text-xs text-muted-foreground">
+                    {(result.confidence * 100).toFixed(1)}%
+                  </span>
+                </p>
+                <p className="text-xs leading-relaxed text-muted-foreground">{t.lowConfidenceHint}</p>
+              </div>
+            </motion.div>
+          )}
+
           {(() => {
             const status = heroStatusByLevel[result.confidenceLevel];
             const StatusIcon = status.icon;

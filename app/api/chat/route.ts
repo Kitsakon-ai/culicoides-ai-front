@@ -305,7 +305,13 @@ async function* streamGemini(body: ChatBody, prompt: string): AsyncGenerator<str
 
   const parts = await buildGeminiParts(prompt, body);
 
-  const res = await fetch(
+  // 503/429 = คิวเต็มฝั่ง Google เป็นช่วง ๆ ยิงซ้ำมักผ่านทันที (วัดจริงแล้วรอบสองผ่าน)
+  // สร้าง parts ไว้นอกลูป จะได้ไม่ต้องโหลดรูปใหม่ทุกครั้งที่ retry
+  const MAX_ATTEMPTS = 3;
+  let res!: Response;
+
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    res = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${body.ai_model}:streamGenerateContent?alt=sse&key=${apiKey}`,
     {
       method: "POST",
@@ -323,11 +329,19 @@ async function* streamGemini(body: ChatBody, prompt: string): AsyncGenerator<str
         },
       }),
     }
-  );
+    );
 
-  if (!res.ok || !res.body) {
+    if (res.ok && res.body) break;
+
+    const retryable = res.status === 503 || res.status === 429;
+    if (retryable && attempt < MAX_ATTEMPTS) {
+      console.warn(`[gemini] ${body.ai_model} ${res.status} — retry ${attempt}/${MAX_ATTEMPTS - 1}`);
+      await new Promise((r) => setTimeout(r, 700 * attempt));
+      continue;
+    }
+
     // ไม่สลับโมเดลแทนให้อัตโนมัติ — ผู้ใช้ต้องรู้ว่าโมเดลที่เลือกไว้มีปัญหาอะไร
-    if (res.status === 503 || res.status === 429) {
+    if (retryable) {
       throw new Error(
         PROMPT_PACK[resolveLang(body.lang)].notice.geminiBusy(body.ai_model, res.status)
       );
@@ -337,8 +351,11 @@ async function* streamGemini(body: ChatBody, prompt: string): AsyncGenerator<str
 
   // เดิมอ่านแค่ parts[0].text — ถ้า Gemini ส่ง thought part มาก่อน คำตอบจริงที่อยู่ part ถัด ๆ ไป
   // จะหายทั้งก้อนแบบเงียบ ๆ (ไม่มี error) → รวมทุก part ที่ไม่ใช่ thought แทน
-  yield* parseSSE(res.body, (d) => {
-    const parts = d?.candidates?.[0]?.content?.parts;
+  let finishReason: string | null = null;
+  yield* parseSSE(res.body!, (d) => {
+    const cand = d?.candidates?.[0];
+    if (cand?.finishReason) finishReason = cand.finishReason;
+    const parts = cand?.content?.parts;
     if (!Array.isArray(parts)) return null;
     const text = parts
       .filter((p: any) => !p?.thought)
@@ -347,6 +364,12 @@ async function* streamGemini(body: ChatBody, prompt: string): AsyncGenerator<str
       .join("");
     return text || null;
   });
+
+  // ถูกตัดกลางคันจะได้รู้ทันที แทนที่จะเห็นคำตอบห้วน ๆ แล้วเดาเอาเอง
+  if (finishReason && finishReason !== "STOP") {
+    console.warn(`[gemini] ${body.ai_model} finishReason=${finishReason}`);
+    if (finishReason === "MAX_TOKENS") yield "\n\n⚠️ (คำตอบถูกตัดเพราะชนเพดานความยาว)";
+  }
 }
 
 // Anthropic's automated safety classifiers can refuse a request per-model
