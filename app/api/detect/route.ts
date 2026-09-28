@@ -7,7 +7,7 @@ export const runtime = "nodejs";
 // ปลุก HF Space + หาปีก + จำแนกทีละตัว — ใช้ลิมิตเดียวกับ /api/predict
 export const maxDuration = 300;
 
-const API_URL = (process.env.FASTAPI_URL || "https://kitsakon-culiciodes.hf.space/").replace(/\/+$/, "");
+const API_URL = (process.env.FASTAPI_URL || "https://kitsakon-culicoides.hf.space/").replace(/\/+$/, "");
 
 export type DetectedWing = {
   box: [number, number, number, number]; // พิกัดบน "ภาพต้นฉบับ" ไม่ใช่ขนาดที่แสดงผล
@@ -69,8 +69,16 @@ export async function POST(req: Request) {
 
     if (!fastapiRes.ok) {
       const text = await fastapiRes.text();
+      // ถ้า FASTAPI_URL ชี้ผิดที่ (เช่น Space ถูกลบไปแล้ว) ปลายทางจะตอบเป็นหน้า HTML
+      // ถ้าส่งดิบ ๆ ต่อไป หน้าเว็บจะพ่น HTML ทั้งหน้าลง console โดยไม่บอกสาเหตุ
+      const looksLikeHtml = text.trimStart().startsWith("<");
       return NextResponse.json(
-        { error: text || "Detection failed from ML API" },
+        {
+          error: looksLikeHtml
+            ? `ML API ที่ ${API_URL} ตอบกลับมาเป็นหน้าเว็บ (HTTP ${fastapiRes.status}) ไม่ใช่ผลตรวจ — ` +
+              `ตรวจว่า FASTAPI_URL ถูกต้องและเซิร์ฟเวอร์ยังทำงานอยู่`
+            : text || "Detection failed from ML API",
+        },
         { status: fastapiRes.status }
       );
     }
