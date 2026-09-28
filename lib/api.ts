@@ -58,6 +58,98 @@ export async function predictImage(
   });
 }
 
+// ── ตรวจหลายปีกในภาพเดียว ────────────────────────────────────────────
+// คนละไปป์ไลน์กับ predictImage: ตัวนั้นมองทั้งรูปเป็นปีกเดียว
+// ส่วนตัวนี้หาปีกทุกตัวก่อน แล้วครอปเข้าโมเดลครอปทีละตัว
+export type DetectedWing = {
+  /** พิกัดบนภาพที่ "ส่งไป" ไม่ใช่ขนาดที่แสดงบนจอ — ต้องวาดบน canvas ขนาดเท่าภาพจริง */
+  box: [number, number, number, number];
+  species: string | null;
+  confidence: number | null;
+  accepted: boolean;
+  knnDistance: number;
+  knnRadius: number;
+  gradcam?: string;
+  heatmap?: string;
+  gradcamError?: string;
+  /** ความน่าจะเป็นครบทุกคลาสของปีกตัวนี้ เรียงมากไปน้อย */
+  topK?: { name: string; probability: number }[];
+  genus?: string | null;
+  taxonomy?: Record<string, string> | null;
+  /** ภาพปีกที่ครอปแล้ว = ภาพที่โมเดลเห็นจริง ใช้ส่งให้ LLM อธิบายเฉพาะปีกนี้ */
+  crop?: string;
+  /** ผลของโมเดลครอปแต่ละตัวสำหรับปีกนี้ — มีหลายรายการเมื่อเลือก ensemble */
+  models?: DetectedWingModel[];
+  /** สรุปว่าคำตอบรวมมาจากการโหวตแบบไหน (เช่น "ทุกโมเดลตรงกัน") */
+  consensus?: string;
+  gradcamModel?: string;
+};
+
+export type DetectedWingModel = {
+  arch: string;
+  name: string;
+  species: string | null;
+  confidence: number | null;
+  accepted: boolean;
+  /** แต่ละสถาปัตยกรรมมีรัศมี kNN ของตัวเอง ใช้ข้ามกันไม่ได้ */
+  knnDistance: number;
+  knnRadius: number;
+  isWinner: boolean;
+  topK: { name: string; probability: number }[];
+};
+
+export type DetectResult = {
+  wings: DetectedWing[];
+  speciesFound: string[];
+  speciesCount: number;
+  wingsDetected: number;
+  wingsAnswered: number;
+  imageSize: [number, number];
+  modelUsed: string;
+  modelsUsed?: string[];
+};
+
+export async function detectWings(
+  file: File,
+  withGradcam = false,
+  mlModel = "efficientnet"
+): Promise<DetectResult> {
+  return perfCall(`detect [${mlModel}]`, async (perf) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("gradcam", withGradcam ? "true" : "false");
+    formData.append("ml_model", mlModel);
+    perf.req(bodyBytes(formData));
+    perf.note(`${file.name} ${file.type || "?"} cam=${withGradcam}`);
+
+    const res = await fetch("/api/detect", {
+      method: "POST",
+      body: formData,
+      cache: "no-store",
+    });
+    perf.lap("ttfb");
+
+    if (!res.ok) throw new Error(await getErrorMessage(res, "Detection failed"));
+
+    const data = await perfJson<DetectResult>(res, perf);
+    perf.note(`${data.wingsDetected} wings · ${data.speciesCount} species`);
+    return data;
+  });
+}
+
+/** ลบไฟล์บน Blob ทิ้งทันทีที่ใช้เสร็จ — ยิงแล้วไม่ต้องรอ และห้าม throw
+ *  ถ้าลบไม่ได้ก็แค่มีไฟล์ค้าง ไม่ควรทำให้ผลลัพธ์ที่ผู้ใช้เห็นพังตาม */
+export function deleteBlobs(urls: (string | null | undefined)[]): void {
+  const list = urls.filter((u): u is string => Boolean(u));
+  if (list.length === 0) return;
+  void fetch("/api/blob-delete", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ urls: list }),
+    keepalive: true, // ให้ส่งต่อได้แม้ผู้ใช้เปลี่ยนหน้า/ปิดแท็บทันที
+  }).catch(() => {});
+}
+
 export type ChatPredictionInput = Pick<
   PredictionResult,
   "species" | "genus" | "confidence" | "confidenceLevel" | "topK" | "explanation"

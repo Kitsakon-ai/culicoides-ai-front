@@ -1,3 +1,4 @@
+import { AI_OFF } from "@/lib/types";
 import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { getProvincesForSpecies } from "@/lib/knowledge";
@@ -198,6 +199,16 @@ export async function POST(req: Request) {
     t.mark("db");
     if (dbProvinces.length > 0) {
       t.log("/api/provinces (db hit)");
+      return NextResponse.json(
+        { provinces: dbProvinces },
+        { headers: { "Server-Timing": t.header() } }
+      );
+    }
+
+    // ผู้ใช้ปิด AI ไว้ → ห้ามยิง LLM เด็ดขาด คืนเท่าที่ฐานข้อมูลมี (อาจว่าง)
+    // ไม่งั้นการ "ปิด AI" จะยังเสียโทเคนผ่านทางนี้โดยที่ผู้ใช้ไม่รู้ตัว
+    if (ai_model === AI_OFF) {
+      t.log("/api/provinces (ai off)");
       return NextResponse.json(
         { provinces: dbProvinces },
         { headers: { "Server-Timing": t.header() } }

@@ -8,7 +8,7 @@ export const runtime = "nodejs";
 // ปลุก HF Space + inference (ensemble = 3 เรียก) อาจนาน — Vercel Pro รองรับถึง 300s
 export const maxDuration = 300;
 
-const API_URL = (process.env.FASTAPI_URL || "https://kitsakon-culiciodes.hf.space/").replace(/\/+$/, "");
+const API_URL = (process.env.FASTAPI_URL || "http://127.0.0.1:3001").replace(/\/+$/, "");
 // https://kitsakon-culiciodes.hf.space/ http://127.0.0.1:3001 /
 
 const MODEL_LABELS: Record<string, string> = {

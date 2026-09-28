@@ -68,8 +68,14 @@ export async function getSpeciesFacts(speciesName: string): Promise<SpeciesFacts
       prisma.$queryRaw<{ province: string }[]>`
         select province from species_province where species_id = ${speciesId} order by province
       `,
+      // ลักษณะปีก "ของชนิดนี้" — ชื่อลักษณะมาจากแคตตาล็อก wing_feature
+      // ส่วนคำบรรยายมาจาก species_wing_feature จึงสะกดตรงกับที่ /api/annotate ใช้เสมอ
       prisma.$queryRaw<{ name_en: string | null; name_th: string | null; description: string | null }[]>`
-        select name_en, name_th, description from morphology_feature where species_id = ${speciesId} order by id
+        select wf.name_en, wf.name_th, swf.description
+        from species_wing_feature swf
+        join wing_feature wf on wf.id = swf.wing_feature_id
+        where swf.species_id = ${speciesId}
+        order by wf.sort, wf.id
       `,
       prisma.$queryRaw<{ citation: string; doi_or_url: string | null; year: number | null }[]>`
         select citation, doi_or_url, year from species_reference where species_id = ${speciesId} order by year desc nulls last
@@ -127,27 +133,38 @@ export async function hasDocuments(): Promise<boolean> {
 
 export type WingFeature = { nameEn: string; nameTh: string; description: string | null };
 
-// ชุดลักษณะปีกสำหรับ annotation — รายชนิดก่อน (morphology_feature) ถ้าไม่มีใช้ genus-level (wing_feature)
+// ชุดลักษณะปีกสำหรับ annotation
+// รายชื่อลักษณะมาจากแคตตาล็อก wing_feature เสมอ (ระดับสกุล ครบ 7 จุด)
+// ส่วนคำบรรยาย ถ้าชนิดนั้นมีของตัวเองใน species_wing_feature ให้ใช้ตัวนั้นแทน
+//
+// เดิมยิง 2 query แบบ fallback ทั้งก้อน ทำให้ถ้าชนิดนั้นมีคำบรรยายแค่ 2 จาก 7 จุด
+// จะได้แค่ 2 จุด ลักษณะที่เหลือหายไปเลย — ตอนนี้ LEFT JOIN จึงได้ครบ 7 จุดเสมอ
+// จุดไหนมีคำบรรยายรายชนิดก็ใช้ตัวนั้น ไม่มีก็ตกไปใช้ของระดับสกุล
 export async function getWingFeatures(species?: string | null): Promise<WingFeature[]> {
   try {
-    const name = species?.trim();
-    if (name) {
-      const rows = await prisma.$queryRaw<{ name_en: string | null; name_th: string | null; description: string | null }[]>`
-        select mf.name_en, mf.name_th, mf.description
-        from species s
-        join morphology_feature mf on mf.species_id = s.id
-        where lower(s.scientific_name) = lower(${name})
-           or lower(s.scientific_name) = lower(${"Culicoides " + name})
-        order by mf.id
-      `;
-      if (rows.length > 0) {
-        return rows.map((r) => ({ nameEn: r.name_en ?? "", nameTh: r.name_th ?? "", description: r.description }));
-      }
-    }
-    const rows = await prisma.$queryRaw<{ name_en: string; name_th: string; description: string | null }[]>`
-      select name_en, name_th, description from wing_feature order by sort, id
+    const name = species?.trim() ?? "";
+    const rows = await prisma.$queryRaw<
+      { name_en: string; name_th: string; description: string | null }[]
+    >`
+      select wf.name_en,
+             wf.name_th,
+             coalesce(swf.description, wf.description) as description
+      from wing_feature wf
+      left join species_wing_feature swf
+        on swf.wing_feature_id = wf.id
+       and swf.species_id = (
+             select s.id from species s
+             where lower(s.scientific_name) = lower(${name})
+                or lower(s.scientific_name) = lower(${"Culicoides " + name})
+             limit 1
+           )
+      order by wf.sort, wf.id
     `;
-    return rows.map((r) => ({ nameEn: r.name_en, nameTh: r.name_th, description: r.description }));
+    return rows.map((r) => ({
+      nameEn: r.name_en,
+      nameTh: r.name_th,
+      description: r.description,
+    }));
   } catch (err) {
     console.error("getWingFeatures error:", err);
     return [];

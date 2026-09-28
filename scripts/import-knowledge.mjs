@@ -53,9 +53,14 @@ async function main() {
 
     // เขียน children ใหม่ทั้งชุด เพื่อให้ import ซ้ำได้ผลลัพธ์เดิม
     await prisma.$executeRaw`delete from species_province   where species_id = ${id}`;
-    await prisma.$executeRaw`delete from morphology_feature where species_id = ${id}`;
+    await prisma.$executeRaw`delete from species_wing_feature where species_id = ${id}`;
     await prisma.$executeRaw`delete from species_reference  where species_id = ${id}`;
-    await prisma.$executeRaw`delete from documents          where species_id = ${id}`;
+    // documents ไม่มีคอลัมน์ species_id แล้ว (migration 0004) — ลบผ่านตารางเชื่อม
+    await prisma.$executeRaw`
+      delete from documents d
+      using document_species ds
+      where ds.document_id = d.id and ds.species_id = ${id}
+    `;
 
     for (const p of sp.provinces ?? []) {
       await prisma.$executeRaw`
@@ -65,11 +70,25 @@ async function main() {
       `;
     }
 
+    // ลักษณะปีกรายชนิด — ต้องจับคู่กับแคตตาล็อก wing_feature ด้วย name_en
+    // ถ้าสะกดไม่ตรงจะจับคู่ไม่ได้ ระบบจึงเตือนแทนที่จะเงียบ ๆ แล้วข้อมูลหาย
     for (const f of sp.features ?? []) {
-      await prisma.$executeRaw`
-        insert into morphology_feature (species_id, name_en, name_th, description)
-        values (${id}, ${f.name_en ?? null}, ${f.name_th ?? null}, ${f.description ?? null})
+      const nameEn = (f.name_en ?? "").trim();
+      if (!nameEn || !f.description) continue;
+      const done = await prisma.$executeRaw`
+        insert into species_wing_feature (species_id, wing_feature_id, description, source)
+        select ${id}, wf.id, ${f.description}, ${f.source ?? null}
+        from wing_feature wf
+        where lower(wf.name_en) = lower(${nameEn})
+        on conflict (species_id, wing_feature_id)
+          do update set description = excluded.description, source = excluded.source
       `;
+      if (done === 0) {
+        console.warn(
+          `   [ข้าม] ไม่พบลักษณะ "${nameEn}" ใน wing_feature — ` +
+          `เพิ่มเข้าแคตตาล็อกก่อน หรือแก้ชื่อให้ตรง (ดู migration 0002)`
+        );
+      }
     }
 
     for (const r of sp.references ?? []) {

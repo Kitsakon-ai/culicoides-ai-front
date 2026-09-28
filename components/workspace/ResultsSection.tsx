@@ -7,24 +7,24 @@ import {
   RotateCcw,
   Printer,
   Loader2,
-  Layers,
   Map,
   Upload,
   SearchX,
   CheckCircle,
   AlertTriangle,
+  ScanSearch,
   XCircle,
 } from "lucide-react";
 
 import type { Lang } from "@/lib/i18n";
 import { CONFIDENCE_LOW } from "@/lib/confidence";
 import type { CulicoidesAnalysis } from "@/hooks/useCulicoidesAnalysis";
-import { GradCamCompare } from "@/components/GradCamCompare";
 import { ResultsPanel } from "@/components/ResultsPanel";
 import { TaxonomyTree } from "@/components/TaxonomyTree";
 import { ExplanationBlock } from "@/components/ExplanationBlock";
 import { ThailandMap } from "@/components/ThailandMap";
 import { EnsembleChart } from "@/components/EnsembleChart";
+import { WingDetectionCard } from "@/components/WingDetectionCard";
 
 interface Props {
   analysis: CulicoidesAnalysis;
@@ -45,7 +45,15 @@ export function ResultsSection({ analysis, lang, t }: Props) {
     isMapLoading,
     isExplaining,
     setActiveNav,
+    detectResult,
+    isDetecting,
+    detectError,
+    selectedWingIndex,
+    selectWing,
   } = analysis;
+
+  const selectedWing =
+    selectedWingIndex != null ? detectResult?.wings[selectedWingIndex] : undefined;
 
   const isOod = result?.confidenceLevel === "ood";
 
@@ -186,6 +194,97 @@ export function ResultsSection({ analysis, lang, t }: Props) {
           </motion.div>
         ) : (
         <>
+          {/* ภาพมีหลายปีก: ผลหลักด้านล่างนี้ยัดทั้งภาพเป็นก้อนเดียวเข้าโมเดล
+              จึงถูกบังคับให้ตอบชนิดเดียว ซึ่งเป็นคำตอบที่ผิดสำหรับภาพแบบนี้
+              ต้องบอกผู้ใช้ตรงนี้ ไม่งั้นเขาจะเชื่อตัวเลขใหญ่ ๆ ด้านบนแทนผลรายปีก */}
+          {/* กำลังดูรายปีกอยู่ — ทุกอย่างด้านล่าง (ชนิด, Top-K, Grad-CAM, คำอธิบาย,
+              แผนที่, taxonomy) เป็นของปีกตัวนี้ ไม่ใช่ของทั้งภาพ ต้องบอกให้ชัด */}
+          {selectedWing && (
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3, ease: [0.2, 0, 0, 1] }}
+              className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-accent/40 bg-accent/10 px-4 py-3"
+            >
+              <div className="flex items-start gap-3">
+                <ScanSearch className="mt-0.5 h-4 w-4 shrink-0 text-accent" />
+                <div className="space-y-0.5">
+                  <p className="text-sm font-medium text-foreground">
+                    {lang === "th"
+                      ? `ตัดสินจากปีกที่ ${(selectedWingIndex ?? 0) + 1} — `
+                      : `Decided from wing ${(selectedWingIndex ?? 0) + 1} — `}
+                    <i>{selectedWing.species}</i>
+                    {detectResult && detectResult.wingsAnswered > 1 && (
+                      <span className="font-normal text-muted-foreground">
+                        {lang === "th"
+                          ? ` (จาก ${detectResult.wingsAnswered} ปีกที่ตอบได้)`
+                          : ` (of ${detectResult.wingsAnswered} identified wings)`}
+                      </span>
+                    )}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {/* ตอบให้ชัดว่า "ตกลงใช้โมเดลตัวไหน" — ถ้าเลือก ensemble
+                        คือใช้ทุกตัวโหวตกัน แล้วเลขคือค่าเฉลี่ยของตัวที่ตรงกัน
+                        ไม่ใช่ตัวใดตัวหนึ่ง */}
+                    {lang === "th" ? (
+                      <>
+                        {selectedWing.models && selectedWing.models.length > 1
+                          ? `ใช้ ${selectedWing.models.length} โมเดลโหวตกัน (${selectedWing.models
+                              .filter((m) => m.isWinner)
+                              .map((m) => m.name)
+                              .join(", ")}) — ตัวเลข ${Math.round(
+                              (selectedWing.confidence ?? 0) * 100
+                            )}% คือค่าเฉลี่ยของโมเดลที่ตรงกัน`
+                          : `ใช้โมเดล ${selectedWing.models?.[0]?.name ?? detectResult?.modelUsed}`}
+                        {" · คำอธิบาย AI แผนที่ และ taxonomy ด้านล่างเป็นของปีกตัวนี้"}
+                      </>
+                    ) : (
+                      <>
+                        {selectedWing.models && selectedWing.models.length > 1
+                          ? `${selectedWing.models.length} models voted; ${Math.round(
+                              (selectedWing.confidence ?? 0) * 100
+                            )}% is the average of those that agreed`
+                          : `Model: ${selectedWing.models?.[0]?.name ?? detectResult?.modelUsed}`}
+                        {". The AI explanation, map and taxonomy below describe this wing."}
+                      </>
+                    )}
+                  </p>
+                </div>
+              </div>
+            </motion.div>
+          )}
+
+          {!selectedWing && detectResult && detectResult.wingsDetected > 1 && (
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3, ease: [0.2, 0, 0, 1] }}
+              className="flex items-start gap-3 rounded-xl border border-accent/30 bg-accent/10 px-4 py-3"
+            >
+              <ScanSearch className="mt-0.5 h-4 w-4 shrink-0 text-accent" />
+              <div className="space-y-0.5">
+                <p className="text-sm font-medium text-foreground">
+                  {lang === "th"
+                    ? `ภาพนี้มี ${detectResult.wingsDetected} ปีก — ผลด้านล่างนี้ตอบได้แค่ชนิดเดียว`
+                    : `This image has ${detectResult.wingsDetected} wings — the result below can only name one species`}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {lang === "th"
+                    ? `ผลหลักมองทั้งภาพเป็นปีกเดียว ถ้าในภาพมีหลายปีก ให้ดูหัวข้อ "ปีกที่พบในภาพ" ด้านล่าง ซึ่งแยกตรวจทีละตัว${
+                        detectResult.speciesCount > 1
+                          ? ` — ตรงนั้นพบ ${detectResult.speciesCount} ชนิด`
+                          : ""
+                      }`
+                    : `The main result treats the whole image as a single wing. See "Wings found in image" below, which examines each wing separately${
+                        detectResult.speciesCount > 1
+                          ? ` — it found ${detectResult.speciesCount} species`
+                          : ""
+                      }.`}
+                </p>
+              </div>
+            </motion.div>
+          )}
+
           {/* ช่วง 70–85%: แสดงผลตามปกติ แต่ต้องบอกผู้ใช้ว่าอย่าเพิ่งเชื่อสนิท */}
           {result.confidenceLevel === "low" && (
             <motion.div
@@ -291,26 +390,22 @@ export function ResultsSection({ analysis, lang, t }: Props) {
             labels={t as unknown as Record<string, string>}
           />
 
-          {imagePreview && (
-            <div className="space-y-4">
-              <div className="flex items-center gap-2 mb-2">
-                <div className="flex h-7 w-7 items-center justify-center rounded-full bg-accent/10">
-                  <Layers className="h-3.5 w-3.5 text-accent" />
-                </div>
-                <span className="text-sm font-medium text-foreground">
-                  {lang === "th"
-                    ? "เปรียบเทียบภาพ — Grad-CAM++"
-                    : "Image Comparison — Grad-CAM++"}
-                </span>
-              </div>
-              <GradCamCompare
-                original={imagePreview}
-                heatmap={result?.heatmap}
-                gradcam={result?.gradcam}
-                lang={lang}
-              />
-            </div>
-          )}
+          {/* เอาการ์ด "เปรียบเทียบภาพ — Grad-CAM++" ออกแล้ว
+              เพราะซ้ำกับ Grad-CAM รายปีกในการ์ดด้านล่าง ซึ่งละเอียดกว่า
+              (แยกให้ทีละปีก แทนที่จะมีใบเดียวต่อทั้งภาพ) */}
+
+          {/* ผลหลักด้านบนมองทั้งรูปเป็นปีกเดียว จึงตอบได้ชนิดเดียว
+              การ์ดนี้ตอบว่าในภาพมีปีกกี่ตัวและกี่ชนิด — ขึ้นเองเมื่อ /detect ตอบกลับมา
+              ถ้า backend ยังไม่มี endpoint นี้ การ์ดจะไม่ขึ้นเลย ของเดิมไม่กระทบ */}
+          <WingDetectionCard
+            preview={imagePreview}
+            data={detectResult}
+            isLoading={isDetecting}
+            error={detectError}
+            lang={lang}
+            selectedIndex={selectedWingIndex}
+            onSelect={selectWing}
+          />
 
           {result.modelComparison && result.modelComparison.length > 0 && (
             <div>

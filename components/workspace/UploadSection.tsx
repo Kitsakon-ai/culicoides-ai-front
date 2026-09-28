@@ -105,7 +105,7 @@ export function UploadSection({ analysis, lang, t }: Props) {
       {imagePreview && !result && (
         <div className="flex justify-end md:hidden">
           <button
-            onClick={handleRunInference}
+            onClick={() => handleRunInference()}
             disabled={isAnalyzing}
             className="flex items-center gap-2 rounded-md bg-accent px-5 py-2.5 text-sm font-medium text-accent-foreground transition-colors hover:bg-accent/90 disabled:opacity-60"
           >

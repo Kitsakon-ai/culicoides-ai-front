@@ -1,4 +1,5 @@
-// เติม morphology_feature (ลักษณะปีกรายชนิด) จากความรู้อนุกรมวิธานมาตรฐาน
+// เติม species_wing_feature (ลักษณะปีกรายชนิด) จากความรู้อนุกรมวิธานมาตรฐาน
+// ชื่อลักษณะต้องตรงกับแคตตาล็อก wing_feature (migration 0002) ถึงจะบันทึกได้
 //   - guard: ถ้าโมเดลไม่มั่นใจลายปีกเฉพาะชนิด (แยกจากชนิดอื่นในสกุลไม่ได้) → confident=false, ไม่ insert
 //   - เขียน draft ทั้งหมดลง data/knowledge/morphology-draft.json ให้ผู้เชี่ยวชาญ review/แก้ก่อนใช้จริง
 //   - insert เฉพาะชนิดที่ confident (annotation จะใช้ per-species แทน genus-level อัตโนมัติ)
@@ -84,10 +85,20 @@ async function main() {
       if (confident) {
         confidentCount++;
         if (!DRY) {
-          await prisma.$executeRawUnsafe(`delete from morphology_feature where species_id=${id}`);
+          await prisma.$executeRawUnsafe(`delete from species_wing_feature where species_id=${id}`);
           for (const f of wf) {
-            await prisma.$executeRaw`insert into morphology_feature (species_id, name_en, name_th, description)
-              values (${id}, ${f.name_en}, ${f.name_th}, ${f.description ?? null})`;
+            // จับคู่กับแคตตาล็อก wing_feature ด้วย name_en — ชื่อต้องสะกดตรงกัน
+            const done = await prisma.$executeRaw`
+              insert into species_wing_feature (species_id, wing_feature_id, description)
+              select ${id}, wf2.id, ${f.description ?? ""}
+              from wing_feature wf2
+              where lower(wf2.name_en) = lower(${f.name_en})
+              on conflict (species_id, wing_feature_id)
+                do update set description = excluded.description
+            `;
+            if (done === 0) {
+              console.warn(`   [ข้าม] "${f.name_en}" ไม่มีในแคตตาล็อก wing_feature`);
+            }
           }
         }
       }

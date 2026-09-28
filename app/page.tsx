@@ -9,6 +9,7 @@ import {
   Settings2,
   Bug,
   ChevronRight,
+  FolderOpen,
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 
@@ -36,6 +37,7 @@ import { UploadSection } from "@/components/workspace/UploadSection";
 import { ResultsSection } from "@/components/workspace/ResultsSection";
 import { ChatSection } from "@/components/workspace/ChatSection";
 import { InspectorSection } from "@/components/workspace/InspectorSection";
+import { BatchSection } from "@/components/workspace/BatchSection";
 
 export default function Index() {
   const [lang, setLang] = useState<Lang>("th");
@@ -67,6 +69,7 @@ export default function Index() {
   const navItems: { id: NavSection; label: string; icon: React.ElementType }[] = [
     { id: "upload", label: lang === "th" ? "อัปโหลด" : "Upload", icon: Upload },
     { id: "results", label: lang === "th" ? "ผลลัพธ์" : "Results", icon: BarChart3 },
+    { id: "batch", label: lang === "th" ? "ตรวจเป็นชุด" : "Batch", icon: FolderOpen },
     { id: "inspector", label: "Inspector", icon: Settings2 },
   ];
 
@@ -143,7 +146,7 @@ export default function Index() {
 
             {imagePreview && !result && (
               <button
-                onClick={handleRunInference}
+                onClick={() => handleRunInference()}
                 disabled={isAnalyzing}
                 className="hidden md:flex items-center gap-2 rounded-md bg-accent px-4 py-1.5 text-sm font-medium text-accent-foreground transition-colors hover:bg-accent/90 disabled:opacity-60"
               >
@@ -259,6 +262,19 @@ export default function Index() {
                       <ChatSection analysis={analysis} lang={lang} t={t} />
                     </div>
                   )}
+                </motion.div>
+              )}
+
+              {activeNav === "batch" && (
+                <motion.div
+                  key="batch"
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                  transition={{ duration: 0.2 }}
+                  className="space-y-6"
+                >
+                  <BatchSection analysis={analysis} lang={lang} />
                 </motion.div>
               )}
 

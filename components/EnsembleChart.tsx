@@ -28,7 +28,9 @@ const TEXT = {
     confidence: "ความเชื่อมั่น",
     status: "สถานะ",
     result: "ผล",
-    best: "ดีที่สุด",
+    // ระบบใหม่ทุกโมเดลโหวตพร้อมกัน ป้ายนี้จึงหมายถึง "โหวตตรงกับคำตอบสุดท้าย"
+    // ไม่ใช่ "ตัวที่ถูกเลือกมาใช้" แบบเดิมที่มีผู้ชนะแค่ตัวเดียว
+    best: "ตรงกัน",
     chartTitle: "ความน่าจะเป็นแต่ละชนิด (%)",
     threshold: "เส้นประน้ำเงิน = เกณฑ์ 70%",
     level: { high: "สูง", low: "ต่ำ", ood: "OOD" } as Record<string, string>,
@@ -40,7 +42,7 @@ const TEXT = {
     confidence: "Confidence",
     status: "Status",
     result: "Result",
-    best: "Best",
+    best: "Agrees",
     chartTitle: "Probability per species (%)",
     threshold: "Blue dashed line = 70% threshold",
     level: { high: "High", low: "Low", ood: "OOD" } as Record<string, string>,
