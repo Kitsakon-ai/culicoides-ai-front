@@ -7,7 +7,7 @@ export const runtime = "nodejs";
 // ปลุก HF Space + หาปีก + จำแนกทีละตัว — ใช้ลิมิตเดียวกับ /api/predict
 export const maxDuration = 300;
 
-const API_URL = (process.env.FASTAPI_URL || "http://127.0.0.1:3001").replace(/\/+$/, "");
+const API_URL = (process.env.FASTAPI_URL || "https://kitsakon-culiciodes.hf.space/").replace(/\/+$/, "");
 
 export type DetectedWing = {
   box: [number, number, number, number]; // พิกัดบน "ภาพต้นฉบับ" ไม่ใช่ขนาดที่แสดงผล
