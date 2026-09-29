@@ -1,100 +1,103 @@
-@import url('https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap');
+/* Inter = ละติน · IBM Plex Sans Thai = ไทย (Inter ไม่มีสระ/วรรณยุกต์ไทย
+   ถ้าไม่โหลด ตัวไทยจะตกไปใช้ฟอนต์ระบบ หน้าตาต่างกันทุกเครื่อง)
+   สองตัวนี้เป็นตระกูล grotesque สัดส่วนใกล้กัน ผสมกันแล้วกลมกลืน */
+@import url('https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500;600&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap');
 @import "tailwindcss";
 
 :root {
-  --background: hsl(0 0% 100%);
-  --foreground: hsl(0 0% 9%);
+  --background: hsl(210 20% 99%);
+  --foreground: hsl(215 25% 12%);
 
   --card: hsl(0 0% 100%);
-  --card-foreground: hsl(0 0% 9%);
+  --card-foreground: hsl(215 25% 12%);
 
   --popover: hsl(0 0% 100%);
-  --popover-foreground: hsl(0 0% 9%);
+  --popover-foreground: hsl(215 25% 12%);
 
-  --primary: hsl(0 0% 9%);
+  --primary: hsl(215 28% 14%);
   --primary-foreground: hsl(0 0% 98%);
 
-  --secondary: hsl(0 0% 96%);
-  --secondary-foreground: hsl(0 0% 9%);
+  --secondary: hsl(210 20% 96%);
+  --secondary-foreground: hsl(215 25% 12%);
 
-  --muted: hsl(0 0% 96%);
-  --muted-foreground: hsl(0 0% 45%);
+  --muted: hsl(210 20% 96%);
+  --muted-foreground: hsl(215 14% 45%);
 
-  --accent: hsl(212 100% 48%);
+  --accent: hsl(214 88% 44%);
   --accent-foreground: hsl(0 0% 100%);
 
   --destructive: hsl(0 84% 60%);
   --destructive-foreground: hsl(0 0% 98%);
 
-  --border: hsl(0 0% 90%);
-  --input: hsl(0 0% 90%);
-  --ring: hsl(212 100% 48%);
+  --border: hsl(214 20% 90%);
+  --input: hsl(214 20% 90%);
+  --ring: hsl(214 88% 44%);
 
   --radius: 0.5rem;
 
-  --success: hsl(142 71% 45%);
+  --success: hsl(160 72% 34%);
   --success-foreground: hsl(0 0% 100%);
-  --warning: hsl(38 92% 50%);
+  --warning: hsl(32 88% 44%);
   --warning-foreground: hsl(0 0% 100%);
 
-  --sidebar-background: hsl(0 0% 98%);
-  --sidebar-foreground: hsl(0 0% 9%);
-  --sidebar-primary: hsl(0 0% 9%);
+  --sidebar-background: hsl(210 22% 97.5%);
+  --sidebar-foreground: hsl(215 25% 12%);
+  --sidebar-primary: hsl(215 28% 14%);
   --sidebar-primary-foreground: hsl(0 0% 98%);
-  --sidebar-accent: hsl(0 0% 93%);
-  --sidebar-accent-foreground: hsl(0 0% 9%);
-  --sidebar-border: hsl(0 0% 90%);
-  --sidebar-ring: hsl(212 100% 48%);
+  --sidebar-accent: hsl(210 20% 93%);
+  --sidebar-accent-foreground: hsl(215 25% 12%);
+  --sidebar-border: hsl(214 20% 90%);
+  --sidebar-ring: hsl(214 88% 44%);
 
-  --surface-elevated: hsl(0 0% 98%);
-  --nav-active: hsl(212 100% 48%);
+  --surface-elevated: hsl(210 20% 97%);
+  --nav-active: hsl(214 88% 44%);
 }
 
 .dark {
-  --background: hsl(0 0% 0%);
-  --foreground: hsl(0 0% 93%);
+  --background: hsl(220 18% 7%);
+  --foreground: hsl(210 16% 93%);
 
-  --card: hsl(0 0% 5%);
-  --card-foreground: hsl(0 0% 93%);
+  --card: hsl(220 16% 10%);
+  --card-foreground: hsl(210 16% 93%);
 
-  --popover: hsl(0 0% 5%);
-  --popover-foreground: hsl(0 0% 93%);
+  --popover: hsl(220 16% 10%);
+  --popover-foreground: hsl(210 16% 93%);
 
-  --primary: hsl(0 0% 98%);
-  --primary-foreground: hsl(0 0% 5%);
+  --primary: hsl(210 16% 96%);
+  --primary-foreground: hsl(220 18% 8%);
 
-  --secondary: hsl(0 0% 10%);
-  --secondary-foreground: hsl(0 0% 93%);
+  --secondary: hsl(220 14% 15%);
+  --secondary-foreground: hsl(210 16% 93%);
 
-  --muted: hsl(0 0% 10%);
-  --muted-foreground: hsl(0 0% 55%);
+  --muted: hsl(220 14% 15%);
+  --muted-foreground: hsl(215 12% 62%);
 
-  --accent: hsl(212 100% 48%);
+  --accent: hsl(212 90% 56%);
   --accent-foreground: hsl(0 0% 100%);
 
   --destructive: hsl(0 62% 30%);
   --destructive-foreground: hsl(0 0% 98%);
 
-  --border: hsl(0 0% 15%);
-  --input: hsl(0 0% 15%);
-  --ring: hsl(212 100% 48%);
+  --border: hsl(220 12% 19%);
+  --input: hsl(220 12% 19%);
+  --ring: hsl(212 90% 56%);
 
-  --success: hsl(142 71% 45%);
+  --success: hsl(158 64% 46%);
   --success-foreground: hsl(0 0% 100%);
-  --warning: hsl(38 92% 50%);
+  --warning: hsl(38 92% 56%);
   --warning-foreground: hsl(0 0% 100%);
 
-  --sidebar-background: hsl(0 0% 0%);
-  --sidebar-foreground: hsl(0 0% 93%);
-  --sidebar-primary: hsl(212 100% 48%);
+  --sidebar-background: hsl(220 20% 5.5%);
+  --sidebar-foreground: hsl(210 16% 93%);
+  --sidebar-primary: hsl(212 90% 56%);
   --sidebar-primary-foreground: hsl(0 0% 100%);
-  --sidebar-accent: hsl(0 0% 10%);
-  --sidebar-accent-foreground: hsl(0 0% 93%);
-  --sidebar-border: hsl(0 0% 15%);
-  --sidebar-ring: hsl(212 100% 48%);
+  --sidebar-accent: hsl(220 14% 15%);
+  --sidebar-accent-foreground: hsl(210 16% 93%);
+  --sidebar-border: hsl(220 12% 19%);
+  --sidebar-ring: hsl(212 90% 56%);
 
-  --surface-elevated: hsl(0 0% 7%);
-  --nav-active: hsl(212 100% 48%);
+  --surface-elevated: hsl(220 16% 12%);
+  --nav-active: hsl(212 90% 56%);
 }
 
 @theme inline {
@@ -153,7 +156,10 @@
 
   body {
     @apply bg-background text-foreground antialiased;
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    /* เรียง Inter ก่อน: ละตินได้ Inter ส่วนไทยตกมาที่ Plex Thai เพราะ Inter ไม่มีกลิฟไทย */
+    font-family: 'Inter', 'IBM Plex Sans Thai', -apple-system, BlinkMacSystemFont,
+      'Segoe UI', sans-serif;
+    font-feature-settings: 'cv11', 'ss01';  /* ตัวเลข/ตัวอักษรของ Inter อ่านง่ายขึ้น */
   }
 
   .font-mono {
@@ -162,8 +168,17 @@
 }
 
 @layer components {
+  /* การ์ดทั่วไป — เบา ไม่แย่งความสนใจ
+     เดิมใส่ gradient + shadow-md ทุกใบ ทำให้ทุกอย่างเด่นเท่ากันจนไม่มีลำดับ */
   .card-surface {
-    @apply rounded-xl border border-border/60 bg-gradient-to-br from-card via-card to-accent/[0.04] shadow-md shadow-black/5;
+    @apply rounded-xl border border-border/70 bg-card shadow-sm shadow-black/[0.03]
+           transition-shadow duration-200;
+  }
+
+  /* การ์ดผลลัพธ์หลัก — ใบเดียวที่ได้สิทธิ์เด่น ไล่สีอ่อน ๆ เข้าหา accent */
+  .card-hero {
+    @apply rounded-2xl border border-accent/20 shadow-lg shadow-accent/[0.07]
+           bg-gradient-to-br from-card via-card to-accent/[0.06];
   }
 
   .workbench-input {
@@ -171,7 +186,12 @@
   }
 
   .label-caps {
-    @apply text-[11px] font-semibold uppercase tracking-widest text-muted-foreground;
+    @apply text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground;
+  }
+
+  /* ตัวเลขที่ต้องเรียงตรงกันเป็นคอลัมน์ (ความมั่นใจ, ระยะ kNN, พิกัดกรอบ) */
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
   }
 
   .result-flash {
@@ -193,6 +213,38 @@
 
   .next-nav-item-active {
     @apply bg-secondary text-foreground font-medium;
+  }
+}
+
+@layer base {
+  /* โฟกัสด้วยคีย์บอร์ดต้องเห็นชัด แต่ไม่ต้องโผล่ตอนคลิกเมาส์ */
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+    border-radius: var(--radius-sm);
+  }
+
+  ::selection {
+    background: hsl(214 88% 44% / 0.18);
+  }
+
+  /* สกรอลบาร์ให้กลืนกับธีม แทนของเทา ๆ ของเบราว์เซอร์ */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+  }
+
+  /* หัวข้อไทยมีสระบน-ล่าง ถ้า line-height แน่นเกินจะชนกัน */
+  h1, h2, h3 {
+    line-height: 1.4;
+    text-wrap: balance;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
   }
 }
 

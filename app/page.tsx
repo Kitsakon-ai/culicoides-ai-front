@@ -7,12 +7,13 @@ import {
   Upload,
   BarChart3,
   Settings2,
-  Bug,
+  Menu,
   ChevronRight,
   FolderOpen,
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 
+import { CulicoidesLogo } from "@/components/CulicoidesLogo";
 import { TEXT, type Lang } from "@/lib/i18n";
 import {
   ML_MODELS,
@@ -81,7 +82,7 @@ export default function Index() {
       >
         <div className="flex h-14 items-center gap-2.5 border-b px-4">
           <div className="flex h-7 w-7 items-center justify-center rounded-md bg-accent text-accent-foreground">
-            <Bug className="h-4 w-4" />
+            <CulicoidesLogo className="h-4 w-4" />
           </div>
           <div className="flex flex-col">
             <span className="text-sm font-semibold text-foreground">Culicoides AI</span>
@@ -129,7 +130,7 @@ export default function Index() {
               className="md:hidden flex h-8 w-8 items-center justify-center rounded-md border text-muted-foreground hover:text-foreground"
               onClick={() => setSidebarOpen(!sidebarOpen)}
             >
-              <Bug className="h-4 w-4" />
+              <Menu className="h-4 w-4" />
             </button>
 
             <div className="flex items-center gap-1.5 text-sm">

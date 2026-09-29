@@ -2,7 +2,6 @@
 
 import { motion } from "framer-motion";
 import {
-  Bug,
   BarChart3,
   RotateCcw,
   Printer,
@@ -15,6 +14,8 @@ import {
   ScanSearch,
   XCircle,
 } from "lucide-react";
+
+import { CulicoidesLogo } from "@/components/CulicoidesLogo";
 
 import type { Lang } from "@/lib/i18n";
 import { CONFIDENCE_LOW } from "@/lib/confidence";
@@ -87,7 +88,7 @@ export function ResultsSection({ analysis, lang, t }: Props) {
       {result && !isOod && (
         <div className="hidden print:block print:mb-6">
           <div className="flex items-center gap-2 text-lg font-bold">
-            <Bug className="h-5 w-5" />
+            <CulicoidesLogo className="h-5 w-5" />
             {lang === "th" ? "Culicoides AI — รายงานผลการวิเคราะห์" : "Culicoides AI — Analysis Report"}
           </div>
           <p className="mt-1 text-xs text-gray-500">
@@ -316,9 +317,11 @@ export function ResultsSection({ analysis, lang, t }: Props) {
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.3, ease: [0.2, 0, 0, 1] }}
-                className="relative overflow-hidden rounded-xl border bg-card p-6"
+                // การ์ดนี้คือคำตอบของทั้งหน้า จึงให้เด่นกว่าใบอื่น
+                // (ใบอื่นถูกลดเงาลงแล้วใน .card-surface)
+                className="card-hero relative overflow-hidden p-7"
               >
-                <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-accent/10 via-transparent to-transparent" />
+                <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-accent/[0.09] via-transparent to-transparent" />
 
                 <div className="relative flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
                   <div className="space-y-2.5">

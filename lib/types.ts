@@ -74,43 +74,73 @@ export type HistoryItem = {
 };
 
 // ตัวแรกของลิสต์ = ค่าเริ่มต้นของ workspace (useCulicoidesAnalysis อ่าน ML_MODELS[0].id)
+//
+// ===== ที่มาของตัวเลข accuracy / latency (วัดจริง อย่าแก้มั่ว) =====
+//
+// accuracy : วัดบน test set ที่กันไว้ 40 ภาพ (4 ชนิด ชนิดละ 10) ของชุดครอป
+//            ทั้ง 3 สถาปัตยกรรมได้ 40/40 เท่ากันหมด -> เลือกโมเดลไม่มีผลต่อความแม่น
+//            มีผลแค่ความเร็ว ตัวเลือกพวกนี้จึงมีไว้ "เทียบให้ดู" ไม่ใช่ "เลือกให้แม่นขึ้น"
+//            ตัวเลขนี้วัดเส้นทางจริง (ภาพเต็ม -> ครอปอัตโนมัติ -> จำแนก) ไม่ใช่ป้อนภาพครอปให้
+//
+//            100% บน n=40 เป็นตัวเลขที่เล็กเกินกว่าจะเชื่อเต็มร้อย
+//            ตัวเลขที่ควรอ้างในเล่มคือ 5-fold CV ของ EfficientNet-B0: 97.75% ± 1.22% (n=400)
+//
+// latency  : วัดบน CPU 2 thread (ใกล้เคียงโฮสต์ฟรีที่ deploy จริง) ไม่ใช่ GPU
+//            เป็นเวลา "ต่อภาพ" ของเส้นทางเต็ม = หาปีก ~12ms + จำแนกปีกละ N ms x 2 ปีก
+//            (ภาพสไลด์ในชุดข้อมูลมีปีกเฉลี่ย 2 ตัวต่อภาพ)
+//            เวลาจำแนกต่อปีก: EfficientNet 18ms · DenseNet 56ms · ResNet 61ms
+//            ยังไม่รวมเวลาเน็ตกับเวลาปลุกเครื่องที่หลับอยู่ (โฮสต์ฟรีปลุกครั้งแรก ~30-60s)
 export const ML_MODELS: MLModel[] = [
   {
     id: "ensemble",
-    name: "Ensemble (เปรียบเทียบ 3 โมเดล)",
-    nameEn: "Ensemble (3 models)",
+    name: "Ensemble (3 โมเดลโหวต)",
+    nameEn: "Ensemble (3-model vote)",
     type: "Ensemble",
-    accuracy: 95.0,
-    latency: "~400ms",
-    description: "รัน EfficientNet + ResNet + DenseNet พร้อมกัน แล้วเลือกผลที่ดีที่สุด",
-    descriptionEn: "Runs EfficientNet + ResNet + DenseNet together, then picks the best result",
+    accuracy: 100,
+    latency: "~280ms",
+    description:
+      "รัน EfficientNet + ResNet + DenseNet ทั้งสามตัวแล้วเฉลี่ยความน่าจะเป็น " +
+      "แม่นเท่าตัวเดียว (40/40) แต่ช้ากว่า 6 เท่า — ใช้ตอนอยากเห็นว่าสามโมเดลเห็นตรงกันไหม",
+    descriptionEn:
+      "Runs EfficientNet + ResNet + DenseNet and averages their probabilities. " +
+      "Same accuracy as a single model (40/40) but 6x slower — use it to see whether the three agree.",
   },
   {
     id: "efficientnet_b0",
     name: "EfficientNet-B0",
     type: "CNN",
-    accuracy: 92.5,
-    latency: "~120ms",
-    description: "Transfer learning จาก ImageNet, fine-tuned สำหรับ Culicoides (Macro F1 0.9245, ROC-AUC 1.0000)",
-    descriptionEn: "Transfer learning from ImageNet, fine-tuned for Culicoides (Macro F1 0.9245, ROC-AUC 1.0000)",
-  },
-  {
-    id: "resnet50",
-    name: "ResNet-50",
-    type: "CNN",
-    accuracy: 95.0,
-    latency: "~150ms",
-    description: "Deep residual network — แม่นยำสูงสุดจากการทดสอบ (Macro F1 0.9495, ROC-AUC 0.9983)",
-    descriptionEn: "Deep residual network — highest accuracy in testing (Macro F1 0.9495, ROC-AUC 0.9983)",
+    accuracy: 100,
+    latency: "~50ms",
+    description:
+      "ค่าเริ่มต้นของระบบ — เร็วที่สุดและไฟล์เล็กที่สุด (15.6 MB) โดยแม่นเท่าอีกสองตัว " +
+      "ทดสอบซ้ำแบบ 5-fold cross-validation บน 400 ภาพได้ 97.75% ± 1.22%",
+    descriptionEn:
+      "System default — fastest and smallest (15.6 MB) at the same accuracy as the others. " +
+      "5-fold cross-validation over 400 images: 97.75% ± 1.22%.",
   },
   {
     id: "densenet121",
     name: "DenseNet-121",
     type: "CNN",
-    accuracy: 87.5,
-    latency: "~140ms",
-    description: "Dense connections, ดีสำหรับ feature reuse (Macro F1 0.8719, ROC-AUC 0.9933)",
-    descriptionEn: "Dense connections, good for feature reuse (Macro F1 0.8719, ROC-AUC 0.9933)",
+    accuracy: 100,
+    latency: "~120ms",
+    description:
+      "Dense connections ใช้ feature ซ้ำได้ดี ไฟล์ 28.4 MB — แม่นเท่า EfficientNet แต่ช้ากว่า 3 เท่า",
+    descriptionEn:
+      "Dense connections reuse features well, 28.4 MB — same accuracy as EfficientNet but 3x slower.",
+  },
+  {
+    id: "resnet50",
+    name: "ResNet-50",
+    type: "CNN",
+    accuracy: 100,
+    latency: "~135ms",
+    description:
+      "Deep residual network ไฟล์ 92.5 MB ใหญ่กว่า EfficientNet 5.8 เท่าและช้ากว่า 3.4 เท่า " +
+      "โดยไม่ได้ความแม่นเพิ่ม — ถ้าพื้นที่โฮสต์จำกัดให้ตัดตัวนี้ก่อน",
+    descriptionEn:
+      "Deep residual network, 92.5 MB — 5.8x larger and 3.4x slower than EfficientNet with no accuracy gain. " +
+      "Drop this one first if host storage is tight.",
   },
 ];
 
@@ -137,11 +167,15 @@ export const AI_MODELS: AIModel[] = [
   { id: "gemini-3.1-pro-preview",  name: "Gemini 3.1 Pro ",     provider: "gemini" },
   { id: "gemini-3.6-flash",        name: "Gemini 3.6 Flash",             provider: "gemini" },
   // ไม่ใส่ gemini-3.5-flash: ฝั่ง Google คืน 503 (คิวเต็ม) บ่อยจนใช้เดโม่ไม่ได้
-  // และ 3.6 Flash แทนที่ได้หมด — ใหม่กว่า input เท่ากัน output ถูกกว่า ($7.50 vs $9.00)
-  // ตัวที่มี free tier — เร็วและถูกที่สุดในตระกูล ใช้ทดสอบได้โดยไม่เสียเงิน
-  // (ตระกูล Flash ด้านบนก็มี free tier เหมือนกัน ส่วน 3.1 Pro Preview เป็นแบบจ่ายเงินอย่างเดียว)
+  // และ 3.6 Flash แทนที่ได้หมด — ใหม่กว่าและถูกกว่าทั้งสองทาง
+  // ($0.75/$3.75 เทียบกับ $1.50/$9.00 ต่อ 1M token)
+  //
+  // ตระกูล Flash กับ Flash-Lite ของ Google มีโควตาฟรีต่อวัน ใช้ทดสอบได้โดยไม่เสียเงิน
+  // ส่วน 3.1 Pro Preview เป็นแบบจ่ายเงินอย่างเดียว
   { id: "gemini-3.5-flash-lite",   name: "Gemini 3.5 Flash-Lite", provider: "gemini" },
-  // ถูกที่สุดในลิสต์ทั้งหมด ($0.25/$1.50 ต่อ 1M token) — ถูกกว่า GPT-5.6 Terra ราว 8 เท่า
+  // ถูกที่สุดฝั่ง Google ($0.25/$1.50 ต่อ 1M token) — ถูกกว่า Gemini 3.1 Pro ราว 8 เท่า
+  // ถูกที่สุดในลิสต์ทั้งหมดคือ GPT-5.6 Luna ($0.20/$1.20) ไม่ใช่ตัวนี้
+  // ตารางราคาฉบับเต็มอยู่ใน components/ModelLatencyTable.tsx
   { id: "gemini-3.1-flash-lite",   name: "Gemini 3.1 Flash-Lite",        provider: "gemini" },
   // Anthropic Claude
   { id: "claude-opus-4-8",   name: "Claude Opus 4.8",   provider: "claude" },
