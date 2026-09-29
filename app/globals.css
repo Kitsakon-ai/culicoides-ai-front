@@ -274,6 +274,48 @@
   animation: bounce-high 0.6s ease-in-out infinite;
 }
 
+/* สปินเนอร์ตัวเล็ก (12-16px) ในตารางและปุ่ม
+   animate-spin ของ Tailwind หมุนรอบละ 1 วินาที ซึ่งบนไอคอนเล็ก ๆ ดูกระวนกระวาย
+   ยิ่งมีหลายตัวหมุนไม่พร้อมกันยิ่งกวนสายตา — ที่ 1.6 วินาทีอ่านว่า "กำลังทำงาน"
+   ได้เหมือนกันแต่ไม่ดึงความสนใจเกินจำเป็น
+   ใช้ keyframes ของตัวเองเพราะ Tailwind v4 ไม่ได้เปิดให้ตั้งค่า duration ของ spin */
+@keyframes spin-calm {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin-slow {
+  animation: spin-calm 1.6s linear infinite;
+}
+
+/* สปินเนอร์ตัวใหญ่ (40px ขึ้นไป) ที่เป็นตัวโหลดหลักกลางจอ
+   วงใหญ่กว่าแปลว่าขอบวงเดินทางไกลกว่าในเวลาเท่ากัน ตาจึงอ่านว่าเร็วกว่า
+   ทั้งที่หมุนรอบละเท่ากัน — ตัวใหญ่จึงต้องช้ากว่าตัวเล็กถึงจะรู้สึกเท่ากัน */
+.animate-spin-slower {
+  animation: spin-calm 2.2s linear infinite;
+}
+
+/* วงกระเพื่อมที่อยู่หลังสปินเนอร์ตัวใหญ่
+   animate-ping ของ Tailwind รอบละ 1 วินาที ถ้าปล่อยไว้มันจะกระพริบถี่กว่า
+   สปินเนอร์ที่ซ้อนอยู่ข้างใน กลายเป็นสองจังหวะตีกัน — จูนให้เท่ากับ 2.2s
+   ทั้งคู่จะอ่านเป็นวัตถุชิ้นเดียวที่หายใจช้า ๆ
+
+   เขียน keyframes เองแทนที่จะอ้างชื่อ ping ของ Tailwind เพราะ Tailwind
+   จะสร้าง @keyframes ping ให้ก็ต่อเมื่อมีคลาส animate-ping ถูกใช้อยู่จริง
+   พอเปลี่ยนที่ใช้งานตัวสุดท้ายมาเป็นคลาสนี้ keyframes เดิมจะหายไปเงียบ ๆ */
+@keyframes ping-calm {
+  75%,
+  100% {
+    transform: scale(2);
+    opacity: 0;
+  }
+}
+
+.animate-ping-slower {
+  animation: ping-calm 2.2s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
 @media print {
   @page {
     margin: 14mm;

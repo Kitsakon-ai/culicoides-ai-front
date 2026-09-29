@@ -153,7 +153,7 @@ export default function Index() {
               >
                 {isAnalyzing ? (
                   <>
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    <Loader2 className="h-3.5 w-3.5 animate-spin-slow" />
                     {t.analyzing}
                   </>
                 ) : (

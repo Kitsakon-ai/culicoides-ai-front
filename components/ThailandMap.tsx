@@ -164,7 +164,7 @@ export function ThailandMap({ highlightedProvinces, species, isLoading, lang }: 
     return (
       <div className="card-surface flex flex-col items-center justify-center gap-5 py-24">
         <div className="relative flex h-20 w-20 items-center justify-center">
-          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent/20" />
+          <span className="absolute inline-flex h-full w-full animate-ping-slower rounded-full bg-accent/20" />
           <span className="relative flex h-20 w-20 items-center justify-center rounded-full bg-accent/10">
             <MapPin className="h-10 w-10 animate-pulse text-accent" />
           </span>

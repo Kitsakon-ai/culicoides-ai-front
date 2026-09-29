@@ -59,7 +59,7 @@ export function UploadSection({ analysis, lang, t }: Props) {
             >
               <div className="flex items-center gap-3">
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent/10">
-                  <Loader2 className="h-5 w-5 animate-spin text-accent" />
+                  <Loader2 className="h-5 w-5 animate-spin-slow text-accent" />
                 </div>
                 <div>
                   <p className="text-sm font-semibold text-foreground">
@@ -111,7 +111,7 @@ export function UploadSection({ analysis, lang, t }: Props) {
           >
             {isAnalyzing ? (
               <>
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                <Loader2 className="h-3.5 w-3.5 animate-spin-slow" />
                 {t.analyzing}
               </>
             ) : (

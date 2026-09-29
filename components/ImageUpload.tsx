@@ -171,7 +171,7 @@ export function ImageUpload({ label, hint, onImageSelect, onClear, preview, lang
         <p className="text-xs text-muted-foreground">{hint}</p>
         {isPreparing && (
           <p className="flex items-center justify-center gap-1.5 pt-1 text-xs text-accent">
-            <Loader2 className="h-3 w-3 animate-spin" />
+            <Loader2 className="h-3 w-3 animate-spin-slow" />
             {lang === "th" ? "กำลังย่อรูป..." : "Resizing image..."}
           </p>
         )}

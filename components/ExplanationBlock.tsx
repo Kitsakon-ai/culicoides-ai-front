@@ -146,9 +146,9 @@ export function ExplanationBlock({
         {isLoading && !text.trim() ? (
           <div className="flex flex-col items-center justify-center gap-5 px-4 py-16">
             <div className="relative flex h-20 w-20 items-center justify-center">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent/20" />
+              <span className="absolute inline-flex h-full w-full animate-ping-slower rounded-full bg-accent/20" />
               <span className="relative flex h-20 w-20 items-center justify-center rounded-full bg-accent/10">
-                <Loader2 className="h-10 w-10 animate-spin text-accent" />
+                <Loader2 className="h-10 w-10 animate-spin-slower text-accent" />
               </span>
             </div>
             <div className="space-y-1.5 text-center">
@@ -171,7 +171,7 @@ export function ExplanationBlock({
             </ReactMarkdown>
             {isLoading && (
               <span className="mt-3 inline-flex items-center gap-1.5 text-xs text-accent">
-                <Loader2 className="h-3 w-3 animate-spin" />
+                <Loader2 className="h-3 w-3 animate-spin-slow" />
                 {t.streaming}
               </span>
             )}

@@ -42,8 +42,11 @@ export function BatchSection({ analysis, lang }: Props) {
 
   const done = batchItems.filter((b) => b.status === "done").length;
   const failed = batchItems.filter((b) => b.status === "error").length;
+  const cancelled = batchItems.filter((b) => b.status === "cancelled").length;
   const total = batchItems.length;
-  const pct = total ? Math.round(((done + failed) / total) * 100) : 0;
+  // รูปที่ถูกยกเลิกนับเป็น "จบแล้ว" ด้วย ไม่งั้นแถบความคืบหน้าจะค้างไม่ถึง 100%
+  // ทั้งที่ไม่มีอะไรทำงานอยู่แล้ว
+  const pct = total ? Math.round(((done + failed + cancelled) / total) * 100) : 0;
 
   // สรุปรวมทั้งชุด — นับ "จำนวนปีก" ไม่ใช่จำนวนรูป เพราะหนึ่งรูปมีได้หลายปีก
   const summary = useMemo(() => {
@@ -212,7 +215,7 @@ export function BatchSection({ analysis, lang }: Props) {
             <span className="font-medium">
               {isBatchRunning ? (
                 <span className="inline-flex items-center gap-2">
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  <Loader2 className="h-3.5 w-3.5 animate-spin-slow" />
                   {th ? `กำลังตรวจ ${done + failed}/${total}` : `Scanning ${done + failed}/${total}`}
                 </span>
               ) : (
@@ -224,6 +227,11 @@ export function BatchSection({ analysis, lang }: Props) {
               {failed > 0 && (
                 <span className="ml-2 text-destructive">
                   {th ? `ล้มเหลว ${failed}` : `${failed} failed`}
+                </span>
+              )}
+              {cancelled > 0 && (
+                <span className="ml-2">
+                  {th ? `ยกเลิก ${cancelled}` : `${cancelled} cancelled`}
                 </span>
               )}
             </span>
@@ -301,12 +309,17 @@ export function BatchSection({ analysis, lang }: Props) {
                   <td className="px-3 py-2">
                     {b.status === "running" && (
                       <span className="inline-flex items-center gap-1.5 text-muted-foreground">
-                        <Loader2 className="h-3 w-3 animate-spin" />
+                        <Loader2 className="h-3 w-3 animate-spin-slow" />
                         {th ? "กำลังตรวจ" : "scanning"}
                       </span>
                     )}
                     {b.status === "pending" && (
                       <span className="text-muted-foreground">{th ? "รอคิว" : "queued"}</span>
+                    )}
+                    {b.status === "cancelled" && (
+                      <span className="text-muted-foreground/60">
+                        {th ? "ยกเลิกแล้ว" : "cancelled"}
+                      </span>
                     )}
                     {b.status === "error" && (
                       <span className="text-destructive" title={b.error}>
@@ -347,7 +360,7 @@ export function BatchSection({ analysis, lang }: Props) {
                         className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs transition-colors hover:bg-muted disabled:opacity-50"
                       >
                         {opening === i ? (
-                          <Loader2 className="h-3 w-3 animate-spin" />
+                          <Loader2 className="h-3 w-3 animate-spin-slow" />
                         ) : (
                           <ChevronRight className="h-3 w-3" />
                         )}

@@ -140,7 +140,7 @@ export function ResultsSection({ analysis, lang, t }: Props) {
 
       {result && isAnalyzing && (
         <div className="flex items-center gap-2.5 rounded-lg border border-accent/40 bg-accent/5 px-4 py-3 text-sm font-medium text-accent print:hidden">
-          <Loader2 className="h-4 w-4 animate-spin" />
+          <Loader2 className="h-4 w-4 animate-spin-slow" />
           {lang === "th"
             ? `กำลังวิเคราะห์รูปเดิมใหม่ด้วย ${selectedMlName}...`
             : `Re-analyzing image with ${selectedMlName}...`}

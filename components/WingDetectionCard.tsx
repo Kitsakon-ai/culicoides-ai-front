@@ -161,7 +161,7 @@ export function WingDetectionCard({
           {th ? "ปีกที่พบในภาพ" : "Wings found in image"}
         </span>
         {isLoading && (
-          <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+          <Loader2 className="h-3.5 w-3.5 animate-spin-slow text-muted-foreground" />
         )}
       </div>
 

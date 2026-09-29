@@ -48,7 +48,7 @@ export type BatchItem = {
   /** ไฟล์ที่ย่อแล้วและจะถูกส่งจริง — ต้องเก็บไว้เพื่อเปิดดูภายหลังโดยไม่ย่อซ้ำ */
   file: File | null;
   name: string;
-  status: "pending" | "running" | "done" | "error";
+  status: "pending" | "running" | "done" | "error" | "cancelled";
   result?: DetectResult;
   error?: string;
   ms?: number;
@@ -82,7 +82,11 @@ export function useCulicoidesAnalysis(lang: Lang) {
   // ── ตรวจเป็นชุด (อัปทั้งโฟลเดอร์) ──────────────────────────
   const [batchItems, setBatchItems] = useState<BatchItem[]>([]);
   const [isBatchRunning, setIsBatchRunning] = useState(false);
-  const batchCancelRef = useRef(false);
+  // หมายเลขรอบการตรวจ — เพิ่มขึ้นทุกครั้งที่เริ่มใหม่หรือกดหยุด
+  // ใช้แทน boolean flag เพราะ flag ตัวเดียวถูก "รีเซ็ตกลับ" ได้:
+  // กดหยุดแล้วเริ่มรอบใหม่ทันที ขณะที่ worker รอบเก่ายังค้างอยู่ใน await
+  // พอ worker เก่าตื่นมาเห็น flag เป็น false มันจะทำงานต่อและเขียนผลทับรอบใหม่
+  const batchRunIdRef = useRef(0);
 
   // ปีกที่ผู้ใช้เลือกดูอยู่ (null = ดูผลของทั้งภาพตามปกติ)
   const [selectedWingIndex, setSelectedWingIndex] = useState<number | null>(null);
@@ -117,7 +121,8 @@ export function useCulicoidesAnalysis(lang: Lang) {
     async (files: File[]) => {
       if (!files.length || isBatchRunning) return;
 
-      batchCancelRef.current = false;
+      const runId = ++batchRunIdRef.current;
+      const cancelled = () => batchRunIdRef.current !== runId;
       setIsBatchRunning(true);
       setActiveNav("batch");
       // ปิด AI อัตโนมัติเมื่อเริ่มตรวจเป็นชุด — กันเผลอยิง LLM ทีละหลายสิบครั้ง
@@ -139,7 +144,7 @@ export function useCulicoidesAnalysis(lang: Lang) {
 
       const worker = async () => {
         while (cursor < files.length) {
-          if (batchCancelRef.current) return;
+          if (cancelled()) return;
           const i = cursor++;
           const raw = files[i];
 
@@ -153,7 +158,7 @@ export function useCulicoidesAnalysis(lang: Lang) {
             const r = await downscaleImage(raw);
             if (r.tooLarge) throw new Error("ไฟล์ใหญ่เกินลิมิตอัปโหลด 4.5 MB");
             const det = await detectWings(r.file, false, mlModel);
-            if (batchCancelRef.current) return;
+            if (cancelled()) return;
             setBatchItems((prev) =>
               prev.map((it, k) =>
                 k === i
@@ -163,7 +168,7 @@ export function useCulicoidesAnalysis(lang: Lang) {
               )
             );
           } catch (err) {
-            if (batchCancelRef.current) return;
+            if (cancelled()) return;
             setBatchItems((prev) =>
               prev.map((it, k) =>
                 k === i
@@ -178,18 +183,31 @@ export function useCulicoidesAnalysis(lang: Lang) {
       };
 
       await Promise.all(Array.from({ length: CONCURRENCY }, worker));
+      // รอบนี้ถูกยกเลิกไปแล้ว หรือมีรอบใหม่เริ่มทับ — อย่าไปปิดสถานะของรอบใหม่
+      if (cancelled()) return;
       setIsBatchRunning(false);
     },
     [isBatchRunning, mlModel, aiModel, lang]
   );
 
   const cancelBatch = useCallback(() => {
-    batchCancelRef.current = true;
+    // ขยับหมายเลขรอบ = worker ที่ยังค้างอยู่จะรู้ตัวว่าตกรุ่นแล้ว และเลิกเขียนผล
+    batchRunIdRef.current++;
     setIsBatchRunning(false);
+    // ปิดสถานะให้แถวที่ค้างด้วย ไม่งั้นแถวที่กำลัง "กำลังตรวจ" จะหมุนอยู่ตลอดไป
+    // เพราะ worker ที่ถือแถวนั้นอยู่ return ออกไปก่อนจะได้เขียนสถานะปลายทาง
+    // (ค้างพร้อมกันได้สูงสุดเท่ากับ CONCURRENCY ซึ่งคือ 3)
+    setBatchItems((prev) =>
+      prev.map((it) =>
+        it.status === "running" || it.status === "pending"
+          ? { ...it, status: "cancelled" }
+          : it
+      )
+    );
   }, []);
 
   const clearBatch = useCallback(() => {
-    batchCancelRef.current = true;
+    batchRunIdRef.current++;
     setBatchItems([]);
     setIsBatchRunning(false);
   }, []);

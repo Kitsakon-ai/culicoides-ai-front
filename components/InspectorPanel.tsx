@@ -112,7 +112,7 @@ export function InspectorPanel({
               title={!result ? labels.applyPromptNoResult : undefined}
               className="inline-flex items-center gap-1 rounded-md bg-primary px-2 py-1 text-[11px] font-medium text-primary-foreground transition-colors hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
             >
-              {isApplyingSystemPrompt && <Loader2 className="h-3 w-3 animate-spin" />}
+              {isApplyingSystemPrompt && <Loader2 className="h-3 w-3 animate-spin-slow" />}
               {isApplyingSystemPrompt ? labels.applyingPrompt : labels.applyPrompt}
             </button>
           </div>
