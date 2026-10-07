@@ -11,11 +11,17 @@ import {
   hasDocuments,
   getWingFeatures,
   getProvincesForSpecies,
+  getSpeciesNames,
   type DocMatch,
   type WingFeature,
 } from "@/lib/knowledge";
 import { embedText } from "@/lib/embeddings";
 import { createTimer } from "@/lib/server-timing";
+import { allSpeciesWing, expandCodes, featureOf, shortCite, speciesWing, verifiedWingFacts } from "@/lib/wing-landmarks";
+import {
+  annotateOnRequest, buildComparison, buildOverlapAnswer, isAnnotateRequest, isOverlapQuestion,
+  isTableRequest, requestedFormats, speciesMentioned,
+} from "@/lib/chat-tools";
 
 export const runtime = "nodejs";
 // Streamed responses can run long (esp. explanation mode w/ large max_tokens).
@@ -92,11 +98,27 @@ function buildExplanationPrompt(body: ChatBody, knowledge: string, wingFeatures:
 
   // ป้ายบนลูกศรมาจาก getWingFeatures() ตัวเดียวกับที่ /api/annotate ใช้วาดภาพ
   // ส่งเข้า prompt ด้วยเพื่อให้คำอธิบายกับลูกศรในภาพพูดถึงจุดเดียวกันเสมอ
-  const featureList = wingFeatures
-    .filter((f) => f.nameEn)
-    .map((f) => `- ${f.nameEn}${f.nameTh ? ` (${f.nameTh})` : ""}${f.description ? `: ${f.description}` : ""}`)
+  //
+  // ส่งเฉพาะจุดสังเกตเฉพาะชนิด (species_wing_feature) — ตรงกับหมุดที่ /api/annotate ปักบนภาพ
+  // เดิมส่งนิยามระดับสกุลครบ 7 ข้อแล้วสั่งให้อธิบายทุกป้ายว่า "บ่งชี้ชนิดนี้อย่างไร"
+  // LLM ไม่มีข้อมูลจริงจึงต้องแต่งเติมเอง ผลคือคำอธิบายพื้น ๆ ที่ใช้ได้กับทุกชนิด
+  const named = wingFeatures.filter((f) => f.nameEn);
+  const sp = speciesWing(p?.species);
+  const specific = named
+    .filter((f) => f.specific)
+    .map((f) => {
+      const cite = featureOf(sp, f.nameEn)?.source;
+      return `- ${f.nameEn} (${f.nameTh}): ${expandCodes(f.description ?? "")}${cite ? ` [ที่มา: ${shortCite(cite)}]` : ""}`;
+    })
     .join("\n");
-  const annotatedBlock = featureList ? `\n\n${L.explanation.annotatedFeatures(featureList)}` : "";
+  const contrast = allSpeciesWing()
+    .filter((s) => s.species !== sp?.species)
+    .map((s) => `- C. ${s.species} (สกุลย่อย ${s.subgenus}): ${expandCodes(s.summary_th)}`)
+    .join("\n");
+  const subgenusLine = sp ? `- สกุลย่อยของชนิดนี้: ${sp.subgenus} [ที่มา: ${shortCite(sp.subgenus_source)}]\n` : "";
+  const annotatedBlock = named.length
+    ? `\n\n${L.explanation.annotatedFeatures(subgenusLine + specific, contrast, expandCodes(sp?.system_note_th ?? ""))}`
+    : "";
 
   return `${persona}${predContext}\n\n${L.vectorDanger}${annotatedBlock}${knowledgeBlock}\n\n${L.explanation.style}`;
 }
@@ -156,7 +178,8 @@ function buildVisionPrompt(body: ChatBody, knowledge: string, hasImage: boolean)
       )
     : L.imageMissing;
 
-  const knowledgeBlock = knowledge ? `\n\n${grounding}\n\n${knowledge}` : "";
+  // ข้อมูลปีกที่ตรวจแล้วแนบทุกครั้ง แม้ยังไม่มีผลทำนาย — คำถามเปรียบเทียบชนิด/ชนิดใกล้ชิดถามได้ตลอด
+  const knowledgeBlock = `\n\n${grounding}\n\n${verifiedWingFacts()}${knowledge ? `\n\n${knowledge}` : ""}`;
 
   return `${L.persona}
 
@@ -668,6 +691,27 @@ export async function POST(req: Request) {
   try {
     const body = (await req.json()) as ChatBody;
 
+    // ขอตารางเปรียบเทียบเป็นไฟล์ → สร้าง CSV จากข้อมูลจุดสังเกตโดยตรง ไม่ผ่าน LLM (ไม่มีการแต่ง ไม่เสียโทเคน)
+    if (body.mode === "vision" && isTableRequest(body.message)) {
+      const { answer, attachments } = await buildComparison(resolveLang(body.lang), requestedFormats(body.message));
+      t.log("/api/chat (comparison csv)");
+      return NextResponse.json({ answer, attachments }, { headers: { "Server-Timing": t.header() } });
+    }
+
+    // ขอวาด/วงกลม/ติดชื่อ "บนภาพนี้" → วาดลงภาพปีกของผู้ใช้เอง
+    // ต้องมาก่อน isImageGenRequest — คำว่า "วาด/draw" จะถูกตีความเป็นสร้างรูปใหม่จากศูนย์แทน
+    if (body.mode === "vision" && isAnnotateRequest(body.message) && isHttpUrl(body.images?.original)) {
+      const out = await annotateOnRequest(
+        body.images!.original!,
+        body.message,
+        body.prediction?.species,
+        resolveLang(body.lang)
+      );
+      t.mark("annotate-on-request");
+      t.log("/api/chat (annotate)");
+      return NextResponse.json(out, { headers: { "Server-Timing": t.header() } });
+    }
+
     // Image generation returns a URL (not streamable) → keep the JSON contract.
     if (isImageGenRequest(body.message)) {
       const prompt = buildImageGenTextPrompt(body);
@@ -682,6 +726,23 @@ export async function POST(req: Request) {
         imageUrl: imageResult?.url ?? undefined,
         imageError: imageResult?.error,
       }, { headers: { "Server-Timing": t.header() } });
+    }
+
+    // ถามจังหวัดของ "หลายชนิด" ("จังหวัดไหนพบทั้ง oxystoma และ guttifer") → แผนที่หลายชั้น
+    // ไม่ต้องมีผลทำนาย และไม่ผ่าน LLM — คำตอบสร้างจากรายชื่อจังหวัดในฐานข้อมูลตรง ๆ
+    if (body.mode === "vision") {
+      const mentioned = speciesMentioned(body.message, await getSpeciesNames());
+      if (isOverlapQuestion(body.message, isMapRequest(body.message), mentioned)) {
+        const mapLayers = await Promise.all(
+          mentioned.map(async (s) => ({ species: s, provinces: await getProvincesForSpecies(s) }))
+        );
+        t.mark("db-provinces");
+        t.log(`/api/chat (overlap map, ${mentioned.length} species)`);
+        return NextResponse.json(
+          { answer: buildOverlapAnswer(mapLayers, resolveLang(body.lang)), mapLayers },
+          { headers: { "Server-Timing": t.header() } }
+        );
+      }
     }
 
     // ขอดูแผนที่การกระจายตัว → ส่งรายชื่อจังหวัด "จากฐานข้อมูล" กลับไปให้ client

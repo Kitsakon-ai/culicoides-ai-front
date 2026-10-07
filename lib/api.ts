@@ -186,6 +186,8 @@ export type ChatWithPredictionResponse = {
   imageUrl?: string;
   imageError?: string;
   mapProvinces?: string[];
+  attachments?: { name: string; url: string }[];
+  mapLayers?: { species: string; provinces: string[] }[];
   fallback?: boolean;
   providerUsed?: string;
   modelUsed?: string;

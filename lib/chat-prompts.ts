@@ -16,7 +16,9 @@ export type PromptPack = {
     mlResult: (species: string, confidencePct: string, level: string, topK: string) => string;
     // รายการ feature ที่ถูกวาดเป็นลูกศร+ป้ายบนภาพ annotation (ดึงจากตารางเดียวกับ /api/annotate)
     // → บังคับให้คำอธิบายครอบคลุมทุกป้าย ผู้ใช้จะได้รู้ว่าลูกศรแต่ละอันหมายถึงอะไร
-    annotatedFeatures: (list: string) => string;
+    /** specific = จุดสังเกตเฉพาะชนิดที่หมุดบนภาพชี้อยู่ (มีที่มากำกับ)
+     *  contrast = ชนิดอื่นที่ระบบแยกได้ ไว้เทียบ · note = ข้อจำกัดที่ต้องบอกผู้ใช้ (อาจว่าง) */
+    annotatedFeatures: (specific: string, contrast: string, note: string) => string;
     // รูปแบบ/ไอคอนของคำตอบ ให้อ่านง่ายกว่าข้อความล้วน
     style: string;
   };
@@ -72,25 +74,39 @@ const TH: PromptPack = {
 
   explanation: {
     request:
-      "ช่วยอธิบายผล Explainable AI โดยเน้นลักษณะของปีกจากภาพต้นฉบับร่วมกับ heatmap และอธิบายให้ครบทุกจุดที่มีป้ายกำกับบนภาพ annotation",
+      "ช่วยอธิบายผล Explainable AI โดยเน้นลักษณะของปีกที่ใช้แยกชนิดนี้ออกจากชนิดอื่น ดูจากภาพต้นฉบับร่วมกับ heatmap",
     mlResult: (species, confidencePct, level, topK) =>
       `ผล ML model: ทำนาย Culicoides ${species} (ความเชื่อมั่น ${confidencePct}%, สถานะ: ${level})${topK ? ` | topK: ${topK}` : ""}`,
 
-    annotatedFeatures: (list) => `[ป้ายกำกับบนภาพ annotation]
-ระบบวาดลูกศรชี้จุดเหล่านี้บนภาพปีกให้ผู้ใช้เห็นแล้ว (ป้ายบนภาพเป็นภาษาอังกฤษ):
-${list}
+    annotatedFeatures: (specific, contrast, note) => `[จุดสังเกตที่ใช้แยกชนิดนี้ — ระบบปักหมุดจุดเหล่านี้บนภาพปีกจริงให้ผู้ใช้แล้ว]
+${specific || "(ไม่มีข้อมูลจุดสังเกตเฉพาะชนิดนี้ในฐานข้อมูล — ให้บอกผู้ใช้ตรง ๆ ห้ามแต่งขึ้นเอง)"}
 
-บังคับ: ต้องมีหัวข้อ "จุดสังเกตบนภาพ" ที่ไล่อธิบาย "ทุกป้าย" ข้างบน ป้ายละ 1 bullet (1-2 ประโยค) โดยแต่ละข้อต้องมีครบ 3 อย่าง:
-1) ชื่อภาษาอังกฤษให้ตรงกับป้ายบนภาพเป๊ะ ๆ แล้ววงเล็บชื่อไทย
-2) มันคืออะไร / อยู่ตรงไหนของปีก
-3) ลักษณะตรงนั้นบ่งชี้ชนิดนี้อย่างไร — จุดนี้สำคัญที่สุด ห้ามบอกแค่ว่า "เห็นลวดลาย" ต้องบอกว่าลวดลายแบบนี้แยกชนิดนี้ออกจากชนิดใกล้เคียงได้อย่างไร
-ห้ามข้ามป้ายใด ๆ ถ้าจุดไหนในภาพมองไม่ชัด ให้บอกตรง ๆ ว่าเห็นไม่ชัด แต่ยังต้องอธิบายว่า feature นั้นมีความสำคัญต่อการจำแนกอย่างไร`,
+[ชนิดอื่นที่ระบบนี้แยกได้ — ใช้เทียบ]
+${contrast}
+${note ? `
+[ข้อจำกัดที่ต้องบอกผู้ใช้]
+${note}
+` : ""}
+ที่มาในวงเล็บเหลี่ยมมีสองแบบ: ข้อที่ระบุว่า "สังเกตจากภาพปีกในเอกสาร" ไม่มีข้อความตีพิมพ์รองรับ ต้องเขียนให้ผู้อ่านรู้ว่าเป็นการสังเกตจากภาพ ห้ามเขียนเหมือนเป็นข้อเท็จจริงที่ตีพิมพ์แล้ว
+
+ขอบเขตคำตอบ (บังคับ ใช้กับทั้งคำอธิบาย):
+- ระบบนี้จำแนกได้ 4 ชนิดเท่านั้น (C. guttifer, C. mahasarakhamense, C. oxystoma, C. peregrinus) และมีด่าน kNN ปฏิเสธภาพที่ไม่ใช่ 4 ชนิดนี้แล้ว
+- ชนิดที่ ML ทำนายคือคำตอบของระบบ อธิบายว่าทำไมเป็นชนิดนั้น ห้ามบอกเป็นนัยว่าอาจเป็นชนิดอื่น
+- เปรียบเทียบได้เฉพาะกับ 3 ชนิดที่เหลือในระบบ ห้ามเอ่ยชื่อ Culicoides ชนิดอื่นนอกระบบ แม้จะปรากฏใน [ข้อความจากงานวิจัย]
+- ความไม่แน่นอนให้พูดจากความเชื่อมั่นและอันดับรองของ ML เท่านั้น
+
+วิธีเขียนหัวข้อ "จุดสังเกตบนภาพ" (บังคับ):
+1) เขียน bullet ครบทุกจุดในรายการแรก ตามลำดับเดิม ข้อละ 1-2 ประโยค เรียงแบบนี้: ชื่ออังกฤษตรงตามรายการ (ตัวหนา) วงเล็บชื่อไทย → ลักษณะที่ชนิดนี้มีตามข้อมูลข้างบน → ต่างจากชนิดอื่นในระบบอย่างไร → ปิดท้ายด้วยที่มาในวงเล็บ เช่น (Johannsen 1946)
+2) ห้ามเพิ่มจุดสังเกตหรือลักษณะเฉพาะชนิดที่ไม่อยู่ในรายการแรก ห้ามเดาจำนวนจุด ตำแหน่ง ชื่อเซลล์ หรือชื่อเส้นปีกขึ้นเอง ห้ามพูดถึงโครงสร้างทั่วไปที่ทุกชนิดมี (เช่น ปลายปีก ขอบปีก ขนบนปีก) เพื่อเติมให้ยาว
+3) ถ้าในภาพมองไม่เห็นลักษณะข้อไหนชัด ให้บอกตรง ๆ ว่าเห็นไม่ชัด อย่าบรรยายเหมือนเห็น
+4) ถ้ามีข้อจำกัด ให้เขียนเป็น bullet สุดท้ายของหัวข้อ ขึ้นต้นด้วย ⚠️`,
 
     style: `[รูปแบบคำตอบ]
 - จัดเป็นหัวข้อย่อย markdown "## " โดยนำหน้าด้วยอิโมจิที่สื่อความหมาย เช่น
   "## 🔬 ผลการจำแนก" / "## 🧭 จุดสังเกตบนภาพ" / "## 🔥 Grad-CAM บอกอะไร" / "## 🏥 ความสำคัญทางการแพทย์"
 - ทุก bullet ในหัวข้อ "จุดสังเกตบนภาพ" ให้ขึ้นต้นด้วยอิโมจิที่เข้ากับ feature นั้น
-  (เช่น 🪶 ลวดลาย/ขนปีก · 📏 เส้นปีก/สัดส่วน · ⭕ เซลล์ปีก · 🎯 จุดเด่นเฉพาะชนิด · 🔍 จุดที่เห็นไม่ชัด)
+  (เช่น 🎨 ลวดลายปีก · 📏 เส้นปีก/สัดส่วน · ⭕ เซลล์ปีก · 🎯 จุดเด่นเฉพาะชนิด · 🔍 จุดที่เห็นไม่ชัด)
+  ห้ามใช้ 🪶 — ฟอนต์ของ Windows 10 ไม่มีตัวนี้ จะแสดงเป็นกล่องสี่เหลี่ยม
 - ใช้ **ตัวหนา** กับชื่อ feature และตัวเลขสำคัญ
 - ใช้อิโมจิเฉพาะหัวข้อกับต้น bullet เท่านั้น ห้ามแทรกในเนื้อความจนรก และห้ามใส่ตาราง`,
   },
@@ -109,8 +125,15 @@ ${list}
 
 การใช้ข้อมูลและความซื่อสัตย์:
 - ถ้ามี [ข้อมูลจากฐานข้อมูล] / [ข้อความจากงานวิจัย] ด้านล่าง ให้ยึดเป็นแหล่งหลักในการตอบก่อนเสมอ
-- ถ้าคำตอบไม่มีในข้อมูลด้านล่าง ให้บอกชัดว่า "ไม่พบในฐานข้อมูลของระบบ" ก่อน แล้วจึงเสริมด้วยความรู้ทั่วไป/งานวิจัยย้อนหลังไม่เกิน 5 ปี (ระบุว่าเป็นความรู้ทั่วไป)
-- ห้ามกุข้อเท็จจริง/ตัวเลข/ชื่อจังหวัด/ผลการทดลอง ถ้าไม่แน่ใจให้บอกตรง ๆ ว่าไม่แน่ใจ`,
+- ถ้าคำตอบไม่มีในข้อมูลด้านล่าง ให้บอกสั้น ๆ ประโยคเดียวว่า "ไม่พบในฐานข้อมูลของระบบ" แล้ว **ต้องตอบคำถามต่อให้ได้เนื้อหาจริง** ด้วยความรู้ทั่วไป/งานวิจัยที่รู้ พร้อมระบุว่าเป็นความรู้ทั่วไป และบอกระดับความมั่นใจ — ห้ามจบคำตอบแค่ "ไม่พบ" หรือให้ผู้ใช้ไปค้นเอง
+  (เช่น ถามถึงชนิดที่ไม่อยู่ในระบบ ให้เล่าลักษณะเท่าที่รู้จากความรู้ทั่วไป แล้วเทียบกับข้อมูลของชนิดในระบบ)
+- ห้ามกุข้อเท็จจริง/ตัวเลข/ชื่อจังหวัด/ผลการทดลอง ถ้าไม่แน่ใจให้บอกตรง ๆ ว่าไม่แน่ใจ
+
+สิ่งที่ระบบทำให้ได้ (ห้ามตอบว่า "ทำไม่ได้" ในเรื่องเหล่านี้ ให้บอกวิธีสั่งแทน):
+- วาดลงบนภาพปีกของผู้ใช้: วงกลม ลากเส้นชี้ ติดชื่อ (เช่น costa, r1, r2, r3, m1, m2, m4, anal cell หรือจุดสังเกตเฉพาะชนิด) — สั่งเช่น "วงกลม r2 และ m1 บนภาพ"
+- ตารางเปรียบเทียบจุดสังเกต 4 ชนิดเป็นไฟล์ CSV เปิดใน Excel ได้ — สั่งเช่น "ขอตารางเปรียบเทียบลายปีกเป็นไฟล์ CSV"
+- แผนที่จังหวัดที่พบ — สั่งเช่น "ขอดูแผนที่"
+- สร้างภาพประกอบใหม่ — สั่งเช่น "สร้างภาพปีก..."`,
     user: "ผู้ใช้",
     assistant: "ผู้ช่วย",
     noHistory: "ยังไม่มีประวัติการสนทนา",
@@ -183,25 +206,39 @@ const EN: PromptPack = {
 
   explanation: {
     request:
-      "Explain the Explainable AI result, focusing on the wing characters visible in the original photograph together with the heatmap, and cover every feature that is labelled on the annotation image.",
+      "Explain the Explainable AI result, focusing on the wing characters that separate this species from the others, using the original photograph together with the heatmap.",
     mlResult: (species, confidencePct, level, topK) =>
       `ML model result: predicted Culicoides ${species} (confidence ${confidencePct}%, status: ${level})${topK ? ` | topK: ${topK}` : ""}`,
 
-    annotatedFeatures: (list) => `[Labels drawn on the annotation image]
-The system has already drawn arrows pointing at these features on the wing photograph shown to the user:
-${list}
+    annotatedFeatures: (specific, contrast, note) => `[Landmarks that separate this species — the system has pinned these on the real wing photo for the user]
+${specific || "(No species-specific landmarks in the database — tell the user plainly and do not invent any.)"}
 
-Required: include a section "Features marked on the image" that walks through EVERY label above, one bullet each (1-2 sentences). Each bullet must contain all three of:
-1) The English name exactly as it appears on the arrow label
-2) What it is / where on the wing it sits
-3) How that character points to this species — this is the most important part. Never stop at "a wing pattern is visible"; say how this particular pattern separates this species from its close relatives.
-Do not skip any label. If a feature is not clearly visible in the photograph, say so plainly, but still explain why that feature matters for identification.`,
+[Other species this system can identify — for contrast]
+${contrast}
+${note ? `
+[Limitation the user must be told]
+${note}
+` : ""}
+The bracketed sources come in two kinds: items marked "สังเกตจากภาพปีกในเอกสาร" (observed in published wing figures) have NO published text behind them — say they are observations from figures, never present them as published fact.
+
+Scope of the answer (required, applies to the whole explanation):
+- This system identifies only 4 species (C. guttifer, C. mahasarakhamense, C. oxystoma, C. peregrinus), and a kNN gate already rejects images that are none of them
+- The species the ML model predicted is the system's answer. Explain why it is that species; never suggest it might be another species
+- Compare only against the other 3 species in the system. Never name any Culicoides species outside the system, even if it appears in the research excerpts
+- Talk about uncertainty only in terms of the ML confidence and its runner-up
+
+How to write the "Features marked on the image" section (required):
+1) Write one bullet for EVERY landmark in the first list, in the same order, 1-2 sentences each: English name exactly as listed (bold) → what this species shows there, per the data above → how that differs from the other species in this system → the source in brackets, e.g. (Johannsen 1946). The Thai descriptions above are the authoritative content; translate them faithfully.
+2) Never add landmarks or species-specific characters that are not in the first list. Never guess spot counts, positions, cell names or vein names. Do not pad with structures every species has (apex, margins, wing hairs).
+3) If a landmark is not clearly visible in this photograph, say so plainly instead of describing it as seen.
+4) If there is a limitation, make it the last bullet of the section, starting with ⚠️.`,
 
     style: `[Answer format]
 - Structure the answer with markdown "## " subheadings, each prefixed with a meaningful emoji, e.g.
   "## 🔬 Identification" / "## 🧭 Features marked on the image" / "## 🔥 What Grad-CAM shows" / "## 🏥 Medical importance"
 - Every bullet under the marked-features section starts with an emoji suited to that feature
-  (e.g. 🪶 pattern / macrotrichia · 📏 veins & proportions · ⭕ wing cells · 🎯 species-specific character · 🔍 unclear in this photo)
+  (e.g. 🎨 wing pattern · 📏 veins & proportions · ⭕ wing cells · 🎯 species-specific character · 🔍 unclear in this photo)
+  Never use 🪶 — Windows 10 has no glyph for it and it renders as an empty box
 - Use **bold** for feature names and key numbers
 - Use emoji only in headings and at the start of bullets — never sprinkle them through the prose, and do not use tables`,
   },
@@ -220,8 +257,15 @@ Scope of answers:
 
 Using information, and honesty:
 - If [ข้อมูลจากฐานข้อมูล] (knowledge base) or [ข้อความจากงานวิจัย] (research excerpts) appear below, always treat them as your primary source. They are written in Thai — translate what you use into English rather than quoting Thai back to the user
-- If the answer is not in the information below, say clearly "not found in this system's database" first, then supplement with general knowledge / research from the last 5 years (labelling it as such)
-- Never fabricate facts, figures, province names or experimental results. If you are unsure, say so plainly`,
+- If the answer is not in the information below, say so in ONE short sentence ("not found in this system's database") and then you MUST go on to actually answer from general knowledge / research you know, labelled as general knowledge with your confidence level — never stop at "not found" or tell the user to look it up themselves
+  (e.g. for a species outside the system, describe what is generally known about it, then compare with the data on the system's species)
+- Never fabricate facts, figures, province names or experimental results. If you are unsure, say so plainly
+
+Things the system can do for the user (never answer "I can't" for these — tell them how to ask instead):
+- Draw on the user's own wing photo: circles, pointer lines, labels (e.g. costa, r1, r2, r3, m1, m2, m4, anal cell, or the species' diagnostic landmarks) — e.g. "circle r2 and m1 on the image"
+- A comparison table of the 4 species' landmarks as a CSV file that opens in Excel — e.g. "give me the wing comparison table as a CSV file"
+- A map of the provinces where the species is found — e.g. "show the map"
+- Generate a new illustration — e.g. "create an image of the wing..."`,
     user: "User",
     assistant: "Assistant",
     noHistory: "No conversation history yet",

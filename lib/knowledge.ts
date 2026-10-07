@@ -119,6 +119,23 @@ export async function getProvincesForSpecies(speciesName: string): Promise<strin
   }
 }
 
+// ชื่อวิทยาศาสตร์ทุกชนิดในฐานข้อมูล — ใช้หาว่าผู้ใช้พิมพ์ถึงชนิดไหนบ้างในคำถาม
+// แคชไว้ทั้ง process เพราะรายชื่อชนิดแทบไม่เปลี่ยน และถูกเรียกทุกข้อความแชตที่ถามเรื่องจังหวัด
+let speciesNamesCache: string[] | null = null;
+export async function getSpeciesNames(): Promise<string[]> {
+  if (speciesNamesCache) return speciesNamesCache;
+  try {
+    const rows = await prisma.$queryRaw<{ scientific_name: string }[]>`
+      select scientific_name from species order by scientific_name
+    `;
+    speciesNamesCache = rows.map((r) => r.scientific_name);
+    return speciesNamesCache;
+  } catch (err) {
+    console.error("getSpeciesNames error:", err);
+    return [];
+  }
+}
+
 // มี documents (ที่ embed แล้ว) ในฐานข้อมูลไหม — ใช้ตัดสินใจว่าจะยิง embedding query ไหม
 export async function hasDocuments(): Promise<boolean> {
   try {
@@ -131,7 +148,15 @@ export async function hasDocuments(): Promise<boolean> {
   }
 }
 
-export type WingFeature = { nameEn: string; nameTh: string; description: string | null };
+export type WingFeature = {
+  nameEn: string;
+  nameTh: string;
+  description: string | null;
+  /** true = คำบรรยายมาจาก species_wing_feature (ลักษณะของชนิดนี้ มีเอกสารอ้างอิง)
+   *  false = คำนิยามระดับสกุล ใช้กับ Culicoides ทุกชนิด จึงใช้แยกชนิดไม่ได้ */
+  specific: boolean;
+  source: string | null;
+};
 
 // ชุดลักษณะปีกสำหรับ annotation
 // รายชื่อลักษณะมาจากแคตตาล็อก wing_feature เสมอ (ระดับสกุล ครบ 7 จุด)
@@ -144,11 +169,13 @@ export async function getWingFeatures(species?: string | null): Promise<WingFeat
   try {
     const name = species?.trim() ?? "";
     const rows = await prisma.$queryRaw<
-      { name_en: string; name_th: string; description: string | null }[]
+      { name_en: string; name_th: string; description: string | null; specific: boolean; source: string | null }[]
     >`
       select wf.name_en,
              wf.name_th,
-             coalesce(swf.description, wf.description) as description
+             coalesce(swf.description, wf.description) as description,
+             (swf.description is not null) as specific,
+             swf.source
       from wing_feature wf
       left join species_wing_feature swf
         on swf.wing_feature_id = wf.id
@@ -164,6 +191,8 @@ export async function getWingFeatures(species?: string | null): Promise<WingFeat
       nameEn: r.name_en,
       nameTh: r.name_th,
       description: r.description,
+      specific: Boolean(r.specific),
+      source: r.source,
     }));
   } catch (err) {
     console.error("getWingFeatures error:", err);

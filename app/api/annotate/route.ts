@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import sharp from "sharp";
 import { getWingFeatures, type WingFeature } from "@/lib/knowledge";
+import { landmarkByName } from "@/lib/wing-landmarks";
+import { detectLabelBoxes } from "@/lib/label-boxes";
 import { loadAndCropWing } from "@/lib/wing-crop";
 import { createTimer } from "@/lib/server-timing";
 
@@ -37,6 +39,7 @@ function toClaudeMedia(mime: string): ClaudeMediaType {
 
 // ===================================================================
 // วิธีหลัก: ให้ gpt-image "วาด annotation ทับภาพปีกจริง" (image edit)
+// ตำแหน่งป้ายในภาพหาด้วย lib/label-boxes.ts หลังได้ภาพ หน้าเว็บจึงชี้ที่ตัวหนังสือแล้วเปิดการ์ดได้
 // หมายเหตุ: gpt-image เป็น generative → ปีกอาจถูกเรนเดอร์ใหม่ จึงติดป้าย
 // "AI-rendered" ไว้บนภาพเสมอ กันเข้าใจผิดว่าเป็นภาพตัวอย่างต้นฉบับ
 // ===================================================================
@@ -78,10 +81,20 @@ async function padToSquare(cropBase64: string, label: string): Promise<Buffer> {
   }
 }
 
+// ป้ายต้องสะกดตรงชื่อในรายการทุกตัวอักษร — ขั้นถัดไป (detectLabelBoxes) จับคู่ตัวหนังสือในภาพกับชื่อนี้
+// เพื่อวางพื้นที่ชี้เมาส์ ถ้าโมเดลย่อหรือเปลี่ยนคำ ป้ายนั้นจะชี้แล้วไม่มีการ์ด
+// บอกตำแหน่งที่ลูกศรต้องชี้ด้วย เพราะจุดที่ใช้แยกชนิด (เช่น จุดใสใต้ stigma) เจาะจงกว่าชื่อโครงสร้างทั่วไป
 function buildAnnotationPrompt(names: string[]): string {
-  return `Add a clean scientific annotation overlay to this Culicoides midge wing microscopy photograph.
-Draw thin black arrows with short English text labels pointing to each of these wing features where visible: ${names.join(", ")}.
-Keep the wing photograph itself unchanged and in place — only add thin arrows and short English labels on the empty background around the wing. Do not repaint or restyle the wing. Do not add any other text, numbers, or watermark.`;
+  const items = names
+    .map((n) => {
+      const where = landmarkByName(n)?.defEn;
+      return `- "${n}"${where ? ` — point the arrow at: ${where}` : ""}`;
+    })
+    .join("\n");
+  return `Add a clean scientific annotation overlay to this Culicoides midge wing microscopy photograph, in the style of a labelled figure in a taxonomy paper.
+Draw thin black arrows with short black English text labels, one label for each item below. Write each label EXACTLY as given between the quotes — same words, same spelling, no abbreviations:
+${items}
+Keep the wing photograph itself unchanged and in place — only add thin arrows and labels on the empty background around the wing, never on top of the wing. Do not repaint or restyle the wing. Do not add any other text, numbers, or watermark.`;
 }
 
 async function annotateWithGptImage(
@@ -176,8 +189,8 @@ async function annotateWithGeminiImage(
 }
 
 // ===================================================================
-// Fallback: วิธีเดิม — ให้ vision LLM คืนพิกัด (x,y) ของลักษณะปีกจาก DB
-// แล้ว client วาด overlay ทับภาพจริง (พิกเซลปีกไม่ถูกแตะ)
+// วิธีสำรอง: ให้ vision LLM คืนพิกัด (x,y) ของจุดสังเกตจาก DB
+// แล้ว client วางหมุดทับภาพจริง (พิกเซลปีกไม่ถูกแตะ) ชี้เมาส์ที่หมุดเปิดการ์ดได้
 // ===================================================================
 
 const DEFAULT_FEATURE_PROMPT = `ภาพนี้คือภาพระยะใกล้ของปีกแมลง Culicoides (ปีกกินพื้นที่เกือบเต็มเฟรม) ระบุ feature ทางกายวิภาคที่สำคัญ 5 อย่าง โดย:
@@ -196,25 +209,38 @@ function buildFeaturePrompt(features: WingFeature[]): string {
   if (features.length === 0) return DEFAULT_FEATURE_PROMPT;
 
   const list = features
-    .map((f, i) => `${i + 1}. ${f.nameEn} (${f.nameTh})${f.description ? ` — ${f.description}` : ""}`)
+    .map((f, i) => {
+      const where = landmarkByName(f.nameEn)?.locate;
+      return `${i + 1}. ${f.nameEn} (${f.nameTh})${where ? `\n   ตำแหน่ง: ${where}` : ""}${
+        f.description ? `\n   ลักษณะที่ต้องหา: ${f.description}` : ""
+      }`;
+    })
     .join("\n");
 
-  return `ภาพนี้คือภาพระยะใกล้ของปีกแมลง Culicoides (ปีกกินพื้นที่เกือบเต็มเฟรม) ชี้ตำแหน่งของ "ลักษณะปีกมาตรฐาน" ต่อไปนี้ เท่าที่มองเห็นได้ชัดเจนในภาพนี้จริง:
+  return `ภาพนี้คือภาพระยะใกล้ของปีกแมลง Culicoides (ปีกกินพื้นที่เกือบเต็มเฟรม) ชี้ตำแหน่งของจุดสังเกตต่อไปนี้บนภาพนี้
+แต่ละข้อมีคำบรรยายลักษณะที่ต้องหา ให้ชี้ไปที่ตัวลักษณะนั้นจริง ๆ ไม่ใช่แค่โครงสร้างทั่วไป:
 ${list}
 
+วิธีอ่านปีก: ขอบหน้า (costa) คือขอบที่มีจุดเข้มยาว (stigma) อยู่ใกล้ปลาย · โคนปีกคือด้านที่แคบและติดลำตัว · ปลายปีกคือด้านที่มนกว้าง
+ปีกอาจหมุนหรือกลับด้านในภาพ ให้หาขอบหน้าและโคนปีกก่อนแล้วค่อยชี้
+
 กติกา:
-- ใช้เฉพาะลักษณะจากรายการด้านบนเท่านั้น ห้ามคิดชื่อ/ลักษณะใหม่เอง (labelEn = ชื่ออังกฤษ, labelTh = ชื่อไทย ตามรายการ)
-- ต้องอิงจากสิ่งที่เห็นจริงในภาพนี้ ห้ามเดาตำแหน่งลอย ๆ เลือกเฉพาะที่เห็นชัด
-- ระบุ x, y เป็น fraction 0.0–1.0 ของขนาดภาพนี้ (0,0 = มุมบนซ้าย / 1,1 = มุมล่างขวา) ชี้ตรงกลาง feature
-- ถ้าลักษณะไหนไม่เห็นชัดในภาพ ให้ข้ามไป (ไม่ต้องใส่)
+- name ต้องเป็นชื่ออังกฤษจากรายการด้านบน "ตรงทุกตัวอักษร" ห้ามคิดชื่อใหม่ (labelEn = ชื่ออังกฤษ, labelTh = ชื่อไทย ตามรายการ)
+- ชี้ตรงกลางตัวลักษณะ เช่น "จุดใสใต้ stigma" ให้ชี้ที่จุดใสนั้น ไม่ใช่ที่ stigma
+- ถ้าคำบรรยายบอกว่า "ไม่มี" อะไรบางอย่าง ให้ชี้บริเวณที่ผู้ใช้ควรดูเพื่อยืนยันว่าไม่มี
+- ถ้าลักษณะเป็นลายทั้งแผ่นปีก ให้ชี้จุดที่เห็นลักษณะตามคำบรรยายชัดที่สุด
+- อิงจากสิ่งที่เห็นจริงในภาพนี้ ห้ามเดาลอย ๆ ถ้าข้อไหนมองไม่เห็นเลยให้ข้าม
+- ระบุ x, y เป็น fraction 0.0–1.0 ของขนาดภาพนี้ (0,0 = มุมบนซ้าย / 1,1 = มุมล่างขวา)
 
 ตอบ JSON array เท่านั้น ห้ามมีข้อความอื่น ตัวอย่างรูปแบบ:
 [
-  {"name":"rm_crossvein","labelTh":"เส้นขวาง r-m","labelEn":"r-m crossvein","x":0.42,"y":0.45}
+  {"name":"${features[0].nameEn}","labelTh":"${features[0].nameTh}","labelEn":"${features[0].nameEn}","x":0.42,"y":0.45}
 ]`;
 }
 
-function parseFeatures(text: string): AnnotatedFeature[] | null {
+/** allowed = ชื่อที่ขอไป — โมเดลชอบสะกดชื่อเพี้ยนหรือคิดชื่อใหม่ ต้องจับคู่กลับเป็นชื่อในแคตตาล็อก
+ *  client ใช้ name นี้หาข้อมูลการ์ดลอย ถ้าชื่อไม่ตรงหมุดจะไม่มีการ์ด */
+function parseFeatures(text: string, allowed: WingFeature[]): AnnotatedFeature[] | null {
   const match = text.match(/\[[\s\S]*?\]/);
   if (!match) return null;
 
@@ -225,19 +251,29 @@ function parseFeatures(text: string): AnnotatedFeature[] | null {
 
     if (!Array.isArray(raw) || raw.length === 0) return null;
 
-    const features: AnnotatedFeature[] = raw
-      .filter((f) => Number.isFinite(f?.x) && Number.isFinite(f?.y))
-      .slice(0, 5)
-      .map((f, i) => ({
-        name: f.name ?? `f${i}`,
-        labelTh: f.labelTh ?? `Feature ${i + 1}`,
-        labelEn: f.labelEn ?? `Feature ${i + 1}`,
+    const norm = (s?: string) => (s ?? "").toLowerCase().replace(/[^a-z0-9]+/g, "");
+    const byName = new Map(allowed.map((f) => [norm(f.nameEn), f]));
+    const seen = new Set<string>();
+
+    const features: AnnotatedFeature[] = [];
+    for (const f of raw) {
+      if (!Number.isFinite(f?.x) || !Number.isFinite(f?.y)) continue;
+      const known = byName.get(norm(f.name)) ?? byName.get(norm(f.labelEn));
+      // ไม่มีรายการให้เทียบ (DB ล่ม) → รับตามที่โมเดลตอบ มีรายการ → รับเฉพาะที่ตรง และข้อละหมุดเดียว
+      if (allowed.length && (!known || seen.has(known.nameEn))) continue;
+      if (known) seen.add(known.nameEn);
+      const i = features.length;
+      features.push({
+        name: known?.nameEn ?? f.name ?? `f${i}`,
+        labelTh: known?.nameTh ?? f.labelTh ?? `Feature ${i + 1}`,
+        labelEn: known?.nameEn ?? f.labelEn ?? `Feature ${i + 1}`,
         color: COLORS[i % COLORS.length],
         x: Math.max(0.02, Math.min(0.98, Number(f.x))),
         y: Math.max(0.02, Math.min(0.98, Number(f.y))),
-      }));
+      });
+    }
 
-    return features.length > 0 ? features : null;
+    return features.length > 0 ? features.slice(0, 7) : null;
   } catch {
     return null;
   }
@@ -248,7 +284,7 @@ function resolveClaudeModel(aiModel?: string): string {
   return "claude-opus-4-8";
 }
 
-async function findFeaturesClaude(base64: string, mime: string, prompt: string, aiModel?: string): Promise<AnnotatedFeature[] | null> {
+async function findFeaturesClaude(base64: string, mime: string, prompt: string, allowed: WingFeature[], aiModel?: string): Promise<AnnotatedFeature[] | null> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return null;
 
@@ -268,10 +304,10 @@ async function findFeaturesClaude(base64: string, mime: string, prompt: string, 
   });
 
   const text = message.content.find((b) => b.type === "text")?.text ?? "";
-  return parseFeatures(text);
+  return parseFeatures(text, allowed);
 }
 
-async function findFeaturesOpenAI(base64: string, mime: string, prompt: string, aiModel?: string): Promise<AnnotatedFeature[] | null> {
+async function findFeaturesOpenAI(base64: string, mime: string, prompt: string, allowed: WingFeature[], aiModel?: string): Promise<AnnotatedFeature[] | null> {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) return null;
 
@@ -305,16 +341,20 @@ async function findFeaturesOpenAI(base64: string, mime: string, prompt: string, 
           .flatMap((item: any) => (Array.isArray(item?.content) ? item.content : []))
           .find((part: any) => part?.type === "output_text")?.text ?? "";
 
-  return parseFeatures(text);
+  return parseFeatures(text, allowed);
 }
 
-async function findFeaturesGemini(base64: string, mime: string, prompt: string, aiModel?: string): Promise<AnnotatedFeature[] | null> {
+async function findFeaturesGemini(base64: string, mime: string, prompt: string, allowed: WingFeature[], aiModel?: string): Promise<AnnotatedFeature[] | null> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) return null;
 
   // ค่าตั้งต้นเมื่อผู้ใช้เลือกโมเดลค่ายอื่นอยู่ แต่เส้นทางนี้ตกมาใช้ Gemini
   // (ไม่ใช้ gemini-3.5-flash เพราะฝั่ง Google คืน 503 บ่อย)
-  const model = aiModel?.startsWith("gemini") ? aiModel : "gemini-3.6-flash";
+  // Flash-Lite ชี้ตำแหน่งบนปีกได้แย่จนใช้ไม่ได้ (ทดสอบบนปีก guttifer ที่กลับด้าน: ชี้ r-m ผิดฝั่ง stigma
+  // และชี้ลายปีกออกนอกแผ่นปีก) ขณะที่ 3.6 Flash ชี้ถูกครบ 5 จุด — งานชี้หมุดจึงใช้ 3.6 Flash แทน
+  // ยังเป็นค่ายเดียวกับที่ผู้ใช้เลือก และเป็นการเรียกสั้น ๆ ครั้งเดียว (~$0.002) คำอธิบายยังใช้โมเดลที่เลือกตามเดิม
+  const chosen = aiModel?.startsWith("gemini") ? aiModel : "gemini-3.6-flash";
+  const model = chosen.includes("flash-lite") ? "gemini-3.6-flash" : chosen;
 
   const res = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
@@ -368,10 +408,10 @@ async function findFeaturesGemini(base64: string, mime: string, prompt: string, 
     .map((p: any) => p?.text)
     .filter((t: unknown) => typeof t === "string")
     .join("");
-  return parseFeatures(text);
+  return parseFeatures(text, allowed);
 }
 
-const FINDERS: Record<Provider, (base64: string, mime: string, prompt: string, aiModel?: string) => Promise<AnnotatedFeature[] | null>> = {
+const FINDERS: Record<Provider, (base64: string, mime: string, prompt: string, allowed: WingFeature[], aiModel?: string) => Promise<AnnotatedFeature[] | null>> = {
   openai: findFeaturesOpenAI,
   gemini: findFeaturesGemini,
   claude: findFeaturesClaude,
@@ -398,7 +438,7 @@ async function fallbackCoordinateAnnotate(
   for (const p of order) {
     const modelForProvider = p === preferred ? aiModel : undefined;
     try {
-      features = await FINDERS[p](crop.base64, crop.mime, prompt, modelForProvider);
+      features = await FINDERS[p](crop.base64, crop.mime, prompt, wingFeatures, modelForProvider);
     } catch (err) {
       console.error(`/api/annotate ${p} error:`, err);
       features = null;
@@ -437,8 +477,12 @@ export async function POST(req: Request) {
       return done({ features: [] });
     }
 
-    // ดึงชุดลักษณะปีกจริงจากฐานข้อมูล + crop ปีกให้เต็มเฟรม
-    const wingFeatures = await getWingFeatures(species);
+    // ดึงจุดสังเกตจากฐานข้อมูล + crop ปีกให้เต็มเฟรม
+    // ชี้เฉพาะจุดที่ใช้แยกชนิดนี้ (species_wing_feature) — เดิมชี้ครบ 7 จุดระดับสกุลทุกชนิด
+    // ภาพจึงเหมือนกันหมดไม่ว่าจะเป็นชนิดไหน ถ้าชนิดนี้ไม่มีข้อมูลรายชนิดเลยค่อยตกไปใช้ 7 จุดเดิม
+    const allFeatures = await getWingFeatures(species);
+    const diagnostic = allFeatures.filter((f) => f.specific);
+    const wingFeatures = diagnostic.length ? diagnostic : allFeatures.slice(0, 7);
     t.mark("db-features");
     const crop = await loadAndCropWing(imageUrl);
     t.mark("fetch-crop");
@@ -446,7 +490,7 @@ export async function POST(req: Request) {
       return done({ features: [] });
     }
 
-    // วิธีหลัก: โมเดลภาพวาด annotation ทับภาพปีกจริง (ติดป้าย AI-rendered)
+    // วิธีหลัก: โมเดลภาพวาดป้าย + ลูกศรลงภาพปีก (ติดป้าย AI-rendered)
     // ใช้โมเดลของค่ายที่ผู้ใช้เลือกไว้ — เลือก Gemini ก็ต้องได้ภาพจาก Gemini
     // (Claude ไม่มีโมเดลสร้างภาพ จึงใช้ gpt-image)
     const imageProvider = resolveProvider(provider, aiModel) === "gemini" ? "gemini" : "openai";
@@ -460,9 +504,17 @@ export async function POST(req: Request) {
         console.log(
           `[perf] /api/annotate provider=${imageProvider} payload=${(aiImage.length / 1024 / 1024).toFixed(2)}MB base64`
         );
+        // หากรอบของตัวหนังสือแต่ละป้ายในภาพที่ได้ หน้าเว็บจะวางพื้นที่ชี้เมาส์ทับตัวหนังสือพอดี
+        // หาไม่เจอก็ยังส่งภาพไป (ดูได้ แค่ชี้ที่ป้ายแล้วไม่มีการ์ด)
+        const labels = await detectLabelBoxes(
+          aiImage.slice(aiImage.indexOf(",") + 1),
+          wingFeatures.map((f) => f.nameEn).filter(Boolean)
+        );
+        t.mark("label-boxes");
         return done({
           features: [],
           annotatedImage: aiImage,
+          labels,
           aiRendered: true,
           imageProvider,
           imageModel: imageProvider === "gemini" ? GEMINI_IMAGE_MODEL : "gpt-image-2",
@@ -473,9 +525,9 @@ export async function POST(req: Request) {
       console.error(`/api/annotate ${imageProvider} image failed, falling back to coordinates:`, err);
     }
 
-    // Fallback: คืนพิกัดให้ client วาด overlay บนภาพจริง (ไม่แตะพิกเซลปีก)
+    // สำรอง: สร้างภาพไม่ได้ → ให้ vision LLM คืนพิกัด แล้วหน้าเว็บปักหมุดบนภาพปีกจริง (ชี้หมุดเปิดการ์ดได้)
     const features = await fallbackCoordinateAnnotate(crop, wingFeatures, provider, aiModel);
-    t.mark("fallback-vision");
+    t.mark("vision-coords");
     return done({ features });
   } catch (err) {
     console.error("/api/annotate error:", err);

@@ -428,7 +428,10 @@ export function ResultsSection({ analysis, lang, t }: Props) {
               aiModel={selectedAiName}
               isLoading={isExplaining}
               annotatedImage={result?.annotatedImage}
+              annotationLabels={result?.annotationLabels}
+              annotation={result?.annotation}
               lang={lang}
+              species={result?.species}
             />
 
             <div>

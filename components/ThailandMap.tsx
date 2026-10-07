@@ -10,11 +10,11 @@ import type { Lang } from "@/lib/i18n";
 // external runtime fetch to GitHub is fragile: privacy/ad-blocker extensions,
 // corporate/ISP filtering, or GitHub rate-limits can silently block it, leaving
 // the map blank. A local copy always loads.
-const GEO_URL = "/thailand.json";
+export const GEO_URL = "/thailand.json";
 
 // react-simple-maps only accepts TopoJSON or a features array — not a raw
 // GeoJSON FeatureCollection — so we fetch and unwrap `.features` ourselves.
-function useGeoFeatures(url: string) {
+export function useGeoFeatures(url: string) {
   const [features, setFeatures] = useState<any[]>([]);
 
   useEffect(() => {
@@ -36,7 +36,7 @@ function useGeoFeatures(url: string) {
 }
 
 // GeoJSON uses English names — map Thai province names to English
-const TH_TO_EN: Record<string, string> = {
+export const TH_TO_EN: Record<string, string> = {
   "กรุงเทพมหานคร": "Bangkok Metropolis",
   "กระบี่": "Krabi",
   "กาญจนบุรี": "Kanchanaburi",
@@ -124,7 +124,7 @@ interface Props {
 }
 
 // Reverse map: English GeoJSON name → Thai display name
-const EN_TO_TH: Record<string, string> = Object.fromEntries(
+export const EN_TO_TH: Record<string, string> = Object.fromEntries(
   Object.entries(TH_TO_EN).map(([th, en]) => [en, th])
 );
 
@@ -162,7 +162,7 @@ export function ThailandMap({ highlightedProvinces, species, isLoading, lang }: 
 
   if (isLoading) {
     return (
-      <div className="card-surface flex flex-col items-center justify-center gap-5 py-24">
+      <div className="card-surface flex flex-col items-center justify-center gap-5 py-12">
         <div className="relative flex h-20 w-20 items-center justify-center">
           <span className="absolute inline-flex h-full w-full animate-ping-slower rounded-full bg-accent/20" />
           <span className="relative flex h-20 w-20 items-center justify-center rounded-full bg-accent/10">
@@ -201,7 +201,9 @@ export function ThailandMap({ highlightedProvinces, species, isLoading, lang }: 
         </div>
       </div>
 
-      <div className="relative overflow-hidden rounded-md border bg-muted/20">
+      {/* ครึ่งหนึ่งของความกว้างการ์ด — เต็มความกว้างแล้วแผนที่สูงเกินจอ (สัดส่วน 500×650)
+          min-w กันไม่ให้เล็กจนอ่านจังหวัดไม่ออกบนจอมือถือ */}
+      <div className="relative mx-auto w-1/2 min-w-[220px] overflow-hidden rounded-md border bg-muted/20">
         <ComposableMap
           projection="geoMercator"
           projectionConfig={{ scale: 2100, center: [101, 13] }}

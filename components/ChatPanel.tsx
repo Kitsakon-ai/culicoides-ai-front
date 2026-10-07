@@ -1,13 +1,14 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Send, Trash2, Bot, User, Sparkles } from "lucide-react";
+import { Send, Trash2, Bot, User, Sparkles, Download } from "lucide-react";
 import type { ChatMessage } from "@/lib/types";
 import type { Lang } from "@/lib/i18n";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { Components } from "react-markdown";
 import { ThailandMap } from "@/components/ThailandMap";
+import { ThailandOverlapMap } from "@/components/ThailandOverlapMap";
 
 const assistantMd: Components = {
   p: ({ children }) => <p className="mb-2 last:mb-0 text-sm leading-relaxed">{children}</p>,
@@ -145,6 +146,11 @@ export function ChatPanel({
                       </a>
                     </div>
                   )}
+                  {msg.mapLayers && msg.mapLayers.length > 1 && (
+                    <div className="mb-2.5 overflow-hidden rounded-lg border border-border/40 bg-background">
+                      <ThailandOverlapMap layers={msg.mapLayers} lang={lang} />
+                    </div>
+                  )}
                   {/* แผนที่จริง (ไม่ใช่ ASCII จาก LLM) — จังหวัดมาจากฐานข้อมูลงานวิจัย */}
                   {msg.mapProvinces && (
                     <div className="mb-2.5 overflow-hidden rounded-lg border border-border/40 bg-background">
@@ -164,6 +170,21 @@ export function ChatPanel({
                   <ReactMarkdown remarkPlugins={[remarkGfm]} components={assistantMd}>
                     {msg.content}
                   </ReactMarkdown>
+                  {msg.attachments && msg.attachments.length > 0 && (
+                    <div className="mt-2.5 flex flex-wrap gap-1.5">
+                      {msg.attachments.map((a) => (
+                        <a
+                          key={a.name}
+                          href={a.url}
+                          download={a.name}
+                          className="inline-flex items-center gap-1.5 rounded-md border border-accent/40 bg-background px-2.5 py-1.5 text-xs font-medium text-accent transition-colors hover:bg-accent/10"
+                        >
+                          <Download className="h-3.5 w-3.5" />
+                          {a.name.split(".").pop()?.toUpperCase()}
+                        </a>
+                      ))}
+                    </div>
+                  )}
                 </>
               )}
             </div>

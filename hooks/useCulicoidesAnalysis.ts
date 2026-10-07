@@ -25,8 +25,8 @@ import {
 } from "@/lib/api";
 import { levelFromConfidence } from "@/lib/confidence";
 import { downscaleImage } from "@/lib/resize-image";
-import { drawAnnotatedWing } from "@/lib/annotate";
 import type { AnnotatedFeature } from "@/app/api/annotate/route";
+import type { LabelBox } from "@/lib/label-boxes";
 import { getDefaultSystemPrompt } from "@/lib/prompts";
 import { PROMPT_PACK } from "@/lib/chat-prompts";
 import { toPredictionPayload, friendlyChatErrorMessage } from "@/lib/prediction-format";
@@ -354,6 +354,8 @@ export function useCulicoidesAnalysis(lang: Lang) {
         if (explanationRequestId.current !== requestId) return;
 
         let annotatedImage: string | null = null;
+        let annotation: { src: string; features: AnnotatedFeature[] } | null = null;
+        let annotationLabels: LabelBox[] | null = null;
         try {
           if (previewSrc) {
             annotatedImage = await perfCall(`annotate [${pred.species}]`, async (perf) => {
@@ -372,36 +374,38 @@ export function useCulicoidesAnalysis(lang: Lang) {
               });
               perf.lap("ttfb");
 
-              const { features, annotatedImage: aiImage } = await perfJson<{
+              const { features, annotatedImage: aiImage, labels } = await perfJson<{
                 features: AnnotatedFeature[];
                 annotatedImage?: string;
+                labels?: LabelBox[];
               }>(annotateRes, perf);
 
               if (aiImage) {
-                // gpt-image วาด annotation มาเป็นภาพสำเร็จแล้ว (ติดป้าย AI-rendered ในตัว) ใช้ได้เลย
-                perf.note(`gpt-image · ${(aiImage.length / 1024 / 1024).toFixed(2)} MB base64`);
+                // โมเดลภาพวาดป้าย + ลูกศรลงภาพแล้ว (ติดป้าย AI-rendered ในตัว)
+                // labels = กรอบตัวหนังสือของแต่ละป้าย หน้าเว็บวางพื้นที่ชี้เมาส์ทับป้ายให้เปิดการ์ดได้
+                annotationLabels = labels ?? [];
+                perf.note(
+                  `image-model · ${(aiImage.length / 1024 / 1024).toFixed(2)} MB base64 · ${annotationLabels.length} labels`
+                );
                 return aiImage;
               }
 
-              // fallback: วาด overlay พิกัดทับภาพจริงเอง
-              perf.note(`fallback overlay · ${features.length} features`);
-              if (features.length === 0) {
-                toast.info(
-                  lang === "th"
-                    ? "AI ยังไม่สามารถระบุจุดสังเกตบนภาพนี้ได้อัตโนมัติ"
-                    : "AI couldn't automatically pinpoint features on this image"
-                );
+              // สำรอง: ได้แค่พิกัด → หน้าเว็บปักหมุดบนภาพจริงเอง (ชี้หมุดเปิดการ์ดได้)
+              // โหมดปีก previewSrc คือ URL บน Blob ที่จะถูกลบใน finally — ต้องเก็บภาพไว้ในเครื่องก่อน
+              // ไม่งั้นหมุดจะลอยอยู่บนภาพที่โหลดไม่ขึ้น
+              if (features.length > 0) {
+                const src = isWing ? await readFileAsDataUrl(srcFile) : previewSrc;
+                annotation = { src, features };
+                perf.note(`pins fallback · ${features.length} landmarks`);
+                return null;
               }
-              const drawn = await drawAnnotatedWing(
-                previewSrc,
-                null,
-                pred.species,
-                pred.confidence,
-                features,
-                lang,
+
+              toast.info(
+                lang === "th"
+                  ? "AI ยังไม่สามารถระบุจุดสังเกตบนภาพนี้ได้อัตโนมัติ"
+                  : "AI couldn't automatically pinpoint features on this image"
               );
-              perf.lap("canvas-draw");
-              return drawn;
+              return null;
             });
           }
         } catch {
@@ -412,7 +416,7 @@ export function useCulicoidesAnalysis(lang: Lang) {
 
         // คำอธิบายแสดงในการ์ด ExplanationBlock ด้านบนแล้ว ไม่ต้อง seed ลงแชต (กันซ้ำ)
         setResult((prev) =>
-          prev ? { ...prev, explanation: explainRes.answer, annotatedImage } : prev
+          prev ? { ...prev, explanation: explainRes.answer, annotatedImage, annotationLabels, annotation } : prev
         );
       } catch (error) {
         console.error(error);
@@ -423,7 +427,7 @@ export function useCulicoidesAnalysis(lang: Lang) {
 
         // แสดง error ในการ์ดคำอธิบายด้านบน (ไม่ต้อง seed ลงแชต)
         // ล้างรูป annotation ของรอบก่อนทิ้งด้วย — กันภาพเก่าค้างข้าง error สด
-        setResult((prev) => (prev ? { ...prev, explanation: message, annotatedImage: null } : prev));
+        setResult((prev) => (prev ? { ...prev, explanation: message, annotatedImage: null, annotationLabels: null, annotation: null } : prev));
       } finally {
         // ถึงตรงนี้ทั้ง LLM และ /api/annotate ดึงภาพจาก URL ไปใช้เรียบร้อยแล้ว
         // ไฟล์บน Blob จึงหมดประโยชน์ ลบทิ้งทันทีไม่ต้องรอ cron
@@ -781,6 +785,8 @@ export function useCulicoidesAnalysis(lang: Lang) {
             imageUrl: res.imageUrl,
             imageError: res.imageError,
             mapProvinces: res.mapProvinces,
+            attachments: res.attachments,
+            mapLayers: res.mapLayers,
           };
           if (!started) return [...prev, msg];
           const updated = [...prev];

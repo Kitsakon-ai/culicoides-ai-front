@@ -8,6 +8,10 @@ import remarkGfm from "remark-gfm";
 import type { Components } from "react-markdown";
 
 import type { Lang } from "@/lib/i18n";
+import type { AnnotatedFeature } from "@/app/api/annotate/route";
+import { AnnotatedWingImage } from "@/components/AnnotatedWingImage";
+import { LabeledWingImage } from "@/components/LabeledWingImage";
+import type { LabelBox } from "@/lib/label-boxes";
 
 interface ExplanationBlockProps {
   text: string;
@@ -15,18 +19,36 @@ interface ExplanationBlockProps {
   aiModel: string;
   isLoading?: boolean;
   annotatedImage?: string | null;
+  /** กรอบตัวหนังสือป้ายใน annotatedImage — ชี้ที่ป้ายแล้วการ์ดลอยขึ้นมา */
+  annotationLabels?: LabelBox[] | null;
   lang: Lang;
+  /** สำรองเมื่อสร้างภาพไม่ได้: ภาพปีกจริง + พิกัดจุดสังเกต (ชี้เมาส์ที่หมุดได้) */
+  annotation?: { src: string; features: AnnotatedFeature[] } | null;
+  /** ชนิดที่ถูกอธิบาย — ใช้เลือกลักษณะเฉพาะชนิดที่จะโชว์ในการ์ดลอย */
+  species?: string | null;
 }
 
 const TEXT = {
   th: {
     openFull: "เปิดรูปขนาดเต็ม",
+    landmarksTitle: "จุดสังเกตเฉพาะชนิดบนภาพปีกจริง",
+    landmarksHint: "ชี้เมาส์ที่หมุดหรือป้ายเพื่อดูรายละเอียด",
+    labelsHint: "ชี้เมาส์ที่ชื่อจุดสังเกตบนภาพเพื่อดูรายละเอียด",
+    legendText: "มีข้อความตีพิมพ์รองรับ",
+    legendFigure: "สังเกตจากภาพปีกในเอกสาร",
+    legendNote: "ตำแหน่งหมุดระบุโดย AI — ใช้ดูประกอบ ไม่ใช่การวัด",
     generating: "กำลังสร้างคำอธิบายจาก AI",
     analysing: "กำลังวิเคราะห์ภาพและ heatmap...",
     streaming: "กำลังสร้างคำอธิบาย...",
   },
   en: {
     openFull: "Open full size",
+    landmarksTitle: "Diagnostic landmarks on the real wing photo",
+    landmarksHint: "Hover a pin or label for details",
+    labelsHint: "Hover a label on the image for details",
+    legendText: "Supported by published text",
+    legendFigure: "Observed in published wing figures",
+    legendNote: "Pin positions are placed by AI — a visual guide, not a measurement",
     generating: "Generating AI explanation",
     analysing: "is analysing the image and heatmap...",
     streaming: "Generating explanation...",
@@ -44,6 +66,7 @@ function leadingText(node: ReactNode): string {
   if (isValidElement(node)) return leadingText((node.props as { children?: ReactNode }).children);
   return "";
 }
+
 
 const sectionHeading = (children: ReactNode) => (
   <p className="mt-5 mb-2.5 first:mt-0 flex items-center gap-2 rounded-md bg-accent/5 px-2.5 py-1.5 text-sm font-semibold text-foreground ring-1 ring-accent/15">
@@ -117,8 +140,12 @@ export function ExplanationBlock({
   isLoading,
   annotatedImage,
   lang,
+  annotationLabels,
+  annotation,
+  species,
 }: ExplanationBlockProps) {
   const t = TEXT[lang];
+
 
   return (
     <motion.div
@@ -181,21 +208,52 @@ export function ExplanationBlock({
         {/* Annotated wing image — วางไว้ล่างสุดของการ์ด ต่อจากคำอธิบาย
             (ภาพถูกสร้างหลัง stream ข้อความจบ จึงโผล่ต่อท้ายพอดี ไม่ดันข้อความ) */}
         <AnimatePresence>
-          {annotatedImage && !isLoading && (
+          {annotation && annotation.features.length > 0 && species && !isLoading ? (
             <motion.div
+              key="interactive"
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: "auto" }}
               exit={{ opacity: 0, height: 0 }}
               transition={{ duration: 0.3 }}
               className="border-t px-4 pt-3 pb-3 space-y-2"
             >
-              <p className="label-caps text-[10px] text-muted-foreground">Wing Morphology Annotation</p>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={annotatedImage}
-                alt="Annotated wing morphology"
-                className="w-full rounded-md border object-contain"
-              />
+              <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+                <p className="label-caps text-[10px] text-muted-foreground">{t.landmarksTitle}</p>
+                <p className="text-[11px] text-muted-foreground">{t.landmarksHint}</p>
+              </div>
+              <AnnotatedWingImage src={annotation.src} features={annotation.features} species={species} lang={lang} />
+              <div className="flex flex-wrap gap-x-4 gap-y-1 text-[10px] text-muted-foreground">
+                <span className="flex items-center gap-1.5">
+                  <span className="h-2.5 w-2.5 rounded-full bg-accent" />
+                  {t.legendText}
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="h-2.5 w-2.5 rounded-full bg-amber-500" />
+                  {t.legendFigure}
+                </span>
+                <span>{t.legendNote}</span>
+              </div>
+            </motion.div>
+          ) : annotatedImage && !isLoading ? (
+            // ภาพที่โมเดลสร้างภาพวาดป้าย + ลูกศรไว้ — ชี้ที่ตัวหนังสือป้ายแล้วเปิดการ์ด
+            <motion.div
+              key="labeled"
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.3 }}
+              className="border-t px-4 pt-3 pb-3 space-y-2"
+            >
+              <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+                <p className="label-caps text-[10px] text-muted-foreground">Wing Morphology Annotation</p>
+                {species && <p className="text-[11px] text-muted-foreground">{t.labelsHint}</p>}
+              </div>
+              {species ? (
+                <LabeledWingImage src={annotatedImage} labels={annotationLabels ?? []} species={species} lang={lang} />
+              ) : (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={annotatedImage} alt="Annotated wing morphology" className="w-full rounded-md border object-contain" />
+              )}
               <button
                 onClick={() => openImageInTab(annotatedImage)}
                 className="flex items-center gap-1.5 text-[11px] text-accent hover:underline"
@@ -204,7 +262,7 @@ export function ExplanationBlock({
                 {t.openFull}
               </button>
             </motion.div>
-          )}
+          ) : null}
         </AnimatePresence>
       </div>
     </motion.div>

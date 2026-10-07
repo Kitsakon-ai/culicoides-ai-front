@@ -46,6 +46,11 @@ export type PredictionResult = {
   heatmap?: string;
   explanation?: string;
   annotatedImage?: string | null;
+  /** กรอบตัวหนังสือแต่ละป้ายใน annotatedImage (สัดส่วน 0–1) — หน้าเว็บวางพื้นที่ชี้เมาส์ทับป้าย */
+  annotationLabels?: { name: string; x0: number; y0: number; x1: number; y1: number }[] | null;
+  /** สำรองเมื่อสร้างภาพไม่ได้: ภาพปีกจริง + พิกัดจุดสังเกตเฉพาะชนิด (หน้าเว็บวางหมุดให้ชี้เมาส์ได้)
+   *  src ต้องอยู่ได้ตลอด — ห้ามเป็น URL บน Blob เพราะไฟล์ถูกลบทันทีหลังใช้ */
+  annotation?: { src: string; features: { name: string; labelTh: string; labelEn: string; color: string; x: number; y: number }[] } | null;
   modelUsed?: string | null;
   provinces?: string[];
   modelComparison?: ModelComparisonEntry[];
@@ -59,6 +64,10 @@ export type ChatMessage = {
   imageError?: string;
   // ผู้ใช้ขอดูแผนที่ → แนบรายชื่อจังหวัดจากฐานข้อมูลมาให้แชตเรนเดอร์ <ThailandMap> จริง
   mapProvinces?: string[];
+  // ไฟล์ให้ดาวน์โหลด (ตารางเปรียบเทียบ PDF / Word / CSV) — url เป็น data: จึงไม่ต้องเก็บบน Blob
+  attachments?: { name: string; url: string }[];
+  // ถามจังหวัดของหลายชนิดพร้อมกัน → แผนที่หลายชั้น (<ThailandOverlapMap>)
+  mapLayers?: { species: string; provinces: string[] }[];
 };
 
 export type HistoryItem = {

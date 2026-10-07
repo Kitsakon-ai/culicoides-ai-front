@@ -1,0 +1,230 @@
+{
+  "_readme": [
+    "จุดสังเกตบนปีกเฉพาะชนิดของ 4 ชนิดที่ระบบจำแนกได้ — ใช้สามที่: ลูกศรบนภาพปีก, การ์ดลอยตอนชี้เมาส์, prompt คำอธิบาย AI",
+    "ที่มามีสองแบบ แยกกันด้วย level:",
+    "  species / subgenus / population = มีข้อความตีพิมพ์รองรับ quote คือข้อความต้นฉบับคำต่อคำ (ตรวจกับต้นฉบับแล้ว)",
+    "  figure = สังเกตจากภาพถ่ายปีกในเอกสาร (Fig.) ไม่มีข้อความบรรยายในเอกสาร — เป็นการตีความของผู้วิจัย ควรให้ผู้เชี่ยวชาญยืนยัน",
+    "figure_note = ภาพในเอกสารที่ยืนยันหรือที่มาของการสังเกต (แสดงในการ์ดลอย)",
+    "subgenus = ลักษณะระดับสกุลย่อย ใช้แยกได้เพราะใน 4 ชนิดของระบบมีชนิดเดียวในสกุลย่อยนั้น · population = เฉพาะประชากรในไทย",
+    "ลักษณะที่ไม่อยู่ในไฟล์นี้ = ไม่พบหลักฐานว่าใช้แยกชนิดนั้น ระบบจะไม่ชี้และไม่แต่งเพิ่ม",
+    "ที่มาของภาพ: เอกสาร 10 ฉบับในโฟลเดอร์ databeseAi — มีภาพปีกของชนิดเหล่านี้ใน SU21 Fig.2, PR24 Fig.2, T25 Fig.2",
+    "name_en ต้องตรงกับแคตตาล็อก wing_feature ทุกตัวอักษร (catalog_additions ถูกเพิ่มเข้าแคตตาล็อกตอน seed)",
+    "นำเข้าฐานข้อมูล: node --env-file=.env scripts/seed-species-wing-features.mjs",
+    "เปรียบเทียบเฉพาะ 4 ชนิดในระบบเท่านั้น — ชนิดนอกระบบ (เช่น C. arakawae) ไม่ใส่ในคำบรรยาย เพราะคำอธิบายจะดูเหมือนระบบไม่แน่ใจคำตอบของตัวเอง ข้อมูลส่วนนั้นเก็บใน thesis_note_th (ระบบไม่ได้ใช้)",
+    "กลั่นกรองลักษณะจากภาพ (level figure): ต้องเห็นซ้ำในหลายตัวอย่าง (ภาพในเอกสาร + ชุดข้อมูล DS หลายจังหวัด) และต้องต่างจากอีก 3 ชนิดในระบบ ลักษณะที่ทุกชนิดมีร่วมกัน (ขอบหน้าลายสลับ ขนขอบปีก ฯลฯ) ไม่ใส่",
+    "related_th = ชนิดใกล้ชิดนอกระบบ ใช้ตอบคำถามในแชตเท่านั้น (คำอธิบายผลวิเคราะห์ห้ามเอ่ยชื่อชนิดนอกระบบ)"
+  ],
+  "catalog_additions": [
+    {
+      "name_en": "Pale spots below the stigma",
+      "name_th": "จุดใสใต้ stigma",
+      "description": "จุดใสที่อยู่ใต้แนวจุดเข้ม stigma (ใต้ radial cells) ในโคนของ cell r3",
+      "sort": 8
+    },
+    {
+      "name_en": "Poststigmatic pale spot",
+      "name_th": "จุดใสหลัง stigma",
+      "description": "จุดใสบนขอบปีกด้านหน้าที่อยู่ถัดจากปลายจุดเข้ม stigma ไปทางปลายปีก",
+      "sort": 9
+    },
+    {
+      "name_en": "Mediocubital fork",
+      "name_th": "จุดแยก mediocubital",
+      "description": "จุดที่เส้น M3+4 กับ CuA1 แยกจากกันในครึ่งหลังของปีก",
+      "sort": 10
+    }
+  ],
+  "sources": {
+    "J46": "Johannsen, O.A. (1946). Some new species of nemocerous Diptera from Guam. Insects of Guam II, pp. 187–193. Bernice P. Bishop Museum, Honolulu. [บรรยาย C. guttifer var. histrio และระบุว่าลายปีกเหมือน C. guttifer de Meijere ตามภาพของ Edwards (1921)]",
+    "W25": "Wang, Y.N., Duan, Y.L., Li, Z.H., et al. (2025). Diversity and seasonal abundance of Culicoides (Diptera: Ceratopogonidae) in Tengchong County of Yunnan, China. Insects 16(8): 780. https://doi.org/10.3390/insects16080780",
+    "P21": "Pramual, P., Jomkumsing, P., Piraonapicha, K. & Jumpato, W. (2021). Integrative taxonomy uncovers a new Culicoides (Diptera: Ceratopogonidae) biting midge species from Thailand. Acta Tropica 220: 105941. https://doi.org/10.1016/j.actatropica.2021.105941",
+    "T25": "Tepboonrueng, P., Pataradool, T., Boonserm, R., et al. (2025). DNA barcoding of Culicoides biting midges (Diptera: Ceratopogonidae) and detection of Leishmania and other trypanosomatids in southern Thailand. Parasites & Vectors 18: 194. https://doi.org/10.1186/s13071-025-06812-0",
+    "SU21": "Sunantaraporn, S., Thepparat, A., Phumee, A., et al. (2021). Culicoides Latreille (Diptera: Ceratopogonidae) as potential vectors for Leishmania martiniquensis and Trypanosoma sp. in northern Thailand. PLoS Negl. Trop. Dis. 15(12): e0010014. https://doi.org/10.1371/journal.pntd.0010014",
+    "PR24": "Promrangsee, C., Sriswasdi, S., Sunantaraporn, S., et al. (2024). Seasonal dynamics, Leishmania diversity, and nanopore-based metabarcoding of blood meal origins in Culicoides spp. in the newly emerging focus of leishmaniasis in Northern Thailand. Parasites & Vectors 17: 400. https://doi.org/10.1186/s13071-024-06487-z",
+    "S21": "Slama, D., Baraket, R., Remadi, L., Chaker, E. & Babba, H. (2021). Morphological and molecular differentiation between Culicoides oxystoma and Culicoides kingi (Diptera: Ceratopogonidae) in Tunisia. Parasites & Vectors. https://doi.org/10.1186/s13071-021-05084-8",
+    "S23": "Sarkar, A., Banerjee, P., Sinha, S.K. & Mazumdar, A. (2023). A taxonomic revision of the Indian species of the 'Aterinervis' group of Culicoides Latreille subgenus Hoffmania Fox (Diptera: Ceratopogonidae). Zootaxa 5258(4): 405–428. https://doi.org/10.11646/zootaxa.5258.4.3",
+    "MP23": "Mintara, R. & Pramual, P. (2023). Common but not connected: high genetic structure and cryptic genetic diversity in the ubiquitous biting midge Culicoides peregrinus Kieffer. Tropical Biomedicine 40(3): 363–369. https://doi.org/10.47665/tb.40.3.014 [อ้าง Wirth & Hubert (1989) The Culicoides of Southeast Asia]",
+    "SG22": "Songumpai, N., Promrangsee, C., Noopetch, P., Siriyasatien, P. & Preativatanyou, K. (2022). First evidence of co-circulation of emerging Leishmania martiniquensis, Leishmania orientalis, and Crithidia sp. in Culicoides biting midges, the putative vectors for autochthonous transmission in southern Thailand. Trop. Med. Infect. Dis. 7: 379. https://doi.org/10.3390/tropicalmed7110379 [ตาราง 1: สกุลย่อยของแต่ละชนิด]",
+    "DS": "ชุดข้อมูลภาพปีกของงานวิจัยนี้ (split_dataset — ชนิดละ 100 ภาพ เทียบ oxystoma จาก 5 จังหวัด)"
+  },
+  "species": [
+    {
+      "species": "guttifer",
+      "scientific_name": "Culicoides guttifer",
+      "subgenus": "Meijerehelea",
+      "subgenus_source": "SG22",
+      "summary_th": "ปีกสีเทาที่มีจุดใสกลมราว 16 จุด stigma สีเข้มยาว และจุดใสกลมสองจุดใต้ stigma ที่มีพื้นเทาล้อมรอบ — อยู่สกุลย่อย Meijerehelea เดียวกับ C. mahasarakhamense",
+      "features": [
+        {
+          "name_en": "Radial cells (r1, r2)",
+          "level": "species",
+          "description_th": "จุดเข้ม stigma ทรงยาวคลุมครึ่งปลายของ radial cell ที่ 1 และคลุม radial cell ที่ 2 ทั้งเซลล์",
+          "quote": "The elongate dark stigmal spot covers the distal half of the first and all of the second anterior radial cell.",
+          "figure_note": "stigma ยาวและเข้มชัดในภาพปีก SU21 Fig.2, T25 Fig.2 และ PR24 Fig.2",
+          "source": "J46"
+        },
+        {
+          "name_en": "Pale spots below the stigma",
+          "level": "species",
+          "description_th": "จุดใสกลมใต้ radial cells ไม่แตะเส้น radial มีพื้นเทาคั่นอยู่ ในภาพจากเอกสารเห็นเป็นจุดใสกลมสองจุดเรียงกันใต้ stigma ซึ่งไม่พบใน C. mahasarakhamense ที่อยู่สกุลย่อยเดียวกัน",
+          "quote": "in C. guttifer, the pale round dot under the radial cells never touches the radial veins",
+          "figure_note": "จุดใสกลมสองจุดใต้ stigma สังเกตจาก SU21 Fig.2 และ T25 Fig.2 (ตัวอย่างฉบับละ 1 ตัว)",
+          "source": "W25, SU21, T25"
+        },
+        {
+          "name_en": "r-m crossvein",
+          "level": "species",
+          "description_th": "จุดใสขนาดใหญ่คลุมเส้นขวาง r-m และล้ำเข้าไปในครึ่งโคนของ radial cell ที่ 1",
+          "quote": "The large hyaline area covering the crossvein encroaches on the basal half of the first radial cell.",
+          "source": "J46"
+        },
+        {
+          "name_en": "Wing pattern",
+          "level": "species",
+          "description_th": "พื้นปีกสีเทา มีจุดใสทรงกลมขอบคมราว 16 จุดกระจายทั่วแผ่นปีก ขนาดใกล้เคียงกัน",
+          "quote": "Wings with about 16 round hyaline areas on a gray background, those at the base of the wing more or less diffuse.",
+          "figure_note": "จุดใสกลมขอบคมกระจายทั่วปีกใน SU21 Fig.2 และ T25 Fig.2",
+          "source": "J46"
+        },
+        {
+          "name_en": "Wing base / anal region",
+          "level": "species",
+          "description_th": "จุดใสบริเวณโคนปีกขอบฟุ้ง ไม่เป็นวงกลมขอบคมเหมือนจุดใสส่วนที่เหลือของปีก",
+          "quote": "... those at the base of the wing more or less diffuse.",
+          "source": "J46"
+        }
+      ]
+    },
+    {
+      "species": "mahasarakhamense",
+      "scientific_name": "Culicoides mahasarakhamense",
+      "subgenus": "Meijerehelea",
+      "subgenus_source": "P21",
+      "summary_th": "สกุลย่อย Meijerehelea เดียวกับ C. guttifer ลายปีกจึงคล้าย guttifer ที่สุดใน 4 ชนิดของระบบ — แยกจาก guttifer ที่จุดใสใต้ stigma ซึ่งไม่เป็นจุดกลมคู่ที่มีพื้นเทาล้อมรอบ",
+      "system_note_th": "ชนิดนี้อยู่สกุลย่อยเดียวกับ C. guttifer จึงสับสนกับ guttifer ได้ง่ายกว่าอีกสองชนิด ถ้าความเชื่อมั่นไม่สูงหรือ guttifer เป็นอันดับสองที่ใกล้เคียง ให้ดูจุดใสใต้ stigma ประกอบ",
+      "features": [
+        {
+          "name_en": "Wing pattern",
+          "level": "figure",
+          "description_th": "พื้นปีกสีเทามีจุดใสกระจายทั่วแผ่นปีกแบบเดียวกับ C. guttifer ซึ่งอยู่สกุลย่อย Meijerehelea เดียวกัน และต่างจากลายของ C. oxystoma กับ C. peregrinus ที่อยู่คนละสกุลย่อยอย่างชัดเจน จุดที่ใช้แยกจาก C. guttifer อยู่ที่จุดใสใต้ stigma",
+          "quote": "Based on morphological characters including a large and shallow palpal pit, one sac like spermatheca and male with parameres bent at base with large basal knob, the new species was assigned into the subgenus Meijerehelea Wirth and Hubert.",
+          "figure_note": "ภาพปีกใน SU21 Fig.2 และ T25 Fig.2 ลายใกล้เคียง C. guttifer ในแผ่นภาพเดียวกัน และต่างจาก C. oxystoma / C. peregrinus ชัดเจน (การจัดสกุลย่อยมาจาก P21)",
+          "source": "P21, SU21, T25"
+        },
+        {
+          "name_en": "Pale spots below the stigma",
+          "level": "figure",
+          "description_th": "ใต้แนว stigma ไม่มีจุดใสกลมสองจุดที่มีพื้นเทาล้อมรอบแบบ C. guttifer — เห็นเพียงจุดใสจุดเดียวใต้ปลาย stigma หรือเป็นบริเวณใสฟุ้ง ๆ ใช้เป็นจุดดูแยกจาก C. guttifer ซึ่งอยู่สกุลย่อยเดียวกัน",
+          "quote": "",
+          "figure_note": "สังเกตจากภาพปีกใน SU21 Fig.2 และ T25 Fig.2 เทียบกับ C. guttifer ในแผ่นภาพเดียวกัน (ตัวอย่างฉบับละ 1 ตัว ควรยืนยันกับตัวอย่างเพิ่ม)",
+          "source": "SU21, T25"
+        }
+      ],
+      "thesis_note_th": "สำหรับบทข้อจำกัดในเล่ม (ระบบไม่แสดง): C. mahasarakhamense แยกออกมาจาก C. arakawae ในปี 2021 ด้วย paramere ตัวผู้และลายขา [P21] ลายปีกของสองชนิดคล้ายกันจนแยกจากลักษณะภายนอกได้ยาก [T25] และ PR24 Fig.2 ใช้ภาพปีกภาพเดียวแทนทั้งสองชนิด C. arakawae ไม่อยู่ใน 4 ชนิดของระบบ ด่าน kNN ยังไม่เคยทดสอบกับภาพปีก C. arakawae จึงยังไม่รู้ว่าจะปฏิเสธได้หรือไม่",
+      "related_th": [
+        {
+          "species": "Culicoides arakawae",
+          "relation_th": "สกุลย่อย Meijerehelea เดียวกัน C. mahasarakhamense ถูกแยกออกมาจากประชากรที่เคยระบุว่าเป็น C. arakawae ในปี 2021 — ไม่อยู่ใน 4 ชนิดของระบบ",
+          "difference_th": "ลายปีกคล้ายกันจนแยกจากลักษณะภายนอกได้ยาก ตัวแยกคือรูปร่าง paramere ของตัวผู้และลายสีบนขา (PR24 ยังใช้ภาพปีกภาพเดียวแทนทั้งสองชนิด)",
+          "quote": "specimens belonging to one lineage are morphologically different from C. arakawae in shape of the paramere in males, and in the leg color pattern of both sexes. [P21] · C. arakawae and C. mahasarakhamense exhibited similar wing morphological patterns, which made it difficult to distinguish between the two species based solely on their external features. [T25]",
+          "source": "P21, T25, PR24"
+        }
+      ]
+    },
+    {
+      "species": "oxystoma",
+      "scientific_name": "Culicoides oxystoma",
+      "subgenus": "Remmia",
+      "subgenus_source": "SG22",
+      "summary_th": "สกุลย่อย Remmia (กลุ่ม Schultzei) — stigma สั้นเป็นก้อน ตามด้วยจุดใสกลม (ไม่ยื่นยาวแบบ peregrinus), จุดใสใต้ radial cells, จุดใสใน m1 ไม่ข้ามเส้น M2 และจุดใสใหญ่ขอบไม่กลมหลายจุดเชื่อมกัน",
+      "features": [
+        {
+          "name_en": "Radial cells (r1, r2)",
+          "level": "figure",
+          "description_th": "stigma สีน้ำตาลเข้มบนขอบหน้าปีกสั้นและเป็นก้อนกะทัดรัด ต่างจาก C. guttifer และ C. mahasarakhamense ที่ stigma เป็นแถบยาว (ของ C. peregrinus ก็สั้นเช่นกัน จึงใช้แยกจาก peregrinus ไม่ได้)",
+          "quote": "",
+          "figure_note": "เห็นซ้ำในภาพปีกชุดข้อมูลของระบบ 4 ตัวอย่างจาก 4 จังหวัด และในภาพ SU21 Fig.2, T25 Fig.2, PR24 Fig.2 · stigma ยาวของ guttifer ตรงกับ Johannsen 1946",
+          "source": "DS, SU21, T25, PR24, J46"
+        },
+        {
+          "name_en": "Poststigmatic pale spot",
+          "level": "figure",
+          "description_th": "จุดใสถัดจากปลาย stigma บนขอบหน้าปีกเป็นจุดกลม ขนาดพอ ๆ กับจุดใสอื่น ไม่ยื่นยาวลงไปทางขอบหลังปีก ต่างจาก C. peregrinus ที่จุดนี้ใหญ่และยื่นลงเป็นแนวตั้ง — ใช้แยกสองชนิดนี้ที่ stigma สั้นเหมือนกัน",
+          "quote": "",
+          "figure_note": "เห็นซ้ำในภาพปีกชุดข้อมูลของระบบ 4 ตัวอย่าง และ SU21 Fig.2, T25 Fig.2, PR24 Fig.2 · จุดใสหลัง stigma ของ peregrinus ตาม S23",
+          "source": "DS, SU21, T25, PR24, S23"
+        },
+        {
+          "name_en": "Pale spots below the stigma",
+          "level": "species",
+          "description_th": "มีจุดใสอยู่ใต้ radial cells",
+          "quote": "Culicoides oxystoma had pale spots under radial cells",
+          "source": "S21"
+        },
+        {
+          "name_en": "Wing pattern",
+          "level": "species",
+          "description_th": "จุดใสใน cell m1 ไม่ข้ามเส้น M2 ต่างจาก C. peregrinus ที่จุดใสด้านโคนของ m1 กับ m2 เชื่อมกันข้ามเส้น M2 · จุดใสสองจุดใน cell m4 เชื่อมรวมกัน และมีจุดใสระหว่างเส้น Cu1 กับขอบปีก · ในภาพจากเอกสารและชุดข้อมูลยังเห็นว่าจุดใสของชนิดนี้ใหญ่ ขอบไม่กลม และหลายจุดเชื่อมกัน ต่างจากจุดกลมขอบคมของ C. guttifer และจุดเล็กบนพื้นเข้มของ C. peregrinus (ส่วนนี้สังเกตจากภาพ)",
+          "quote": "pale spots in m1 that did not cross M2, another pale spot between Cu1 and the edge of the wing, and two pale spots merged in m4",
+          "figure_note": "ลายแบบเดียวกันเห็นในภาพปีกชุดข้อมูลของระบบหลายจังหวัด และ SU21 Fig.2, T25 Fig.2, PR24 Fig.2 · ลักษณะ m1/m2 ของ peregrinus จาก S23",
+          "source": "S21, S23, DS"
+        }
+      ],
+      "related_th": [
+        {
+          "species": "Culicoides kingi",
+          "relation_th": "สกุลย่อย Remmia กลุ่ม Schultzei เดียวกับ C. oxystoma — ไม่อยู่ใน 4 ชนิดของระบบ ปีกตัวเมียคล้ายกันมาก",
+          "difference_th": "C. kingi: จุดใสใน m1 ข้ามเส้น M2, จุดใสสองจุดใน m4 แยกกัน, มีจุดใสกลมสองจุดหลัง r2 และจุดใสสองจุดใน anal cell · C. oxystoma: จุดใสใน m1 ไม่ข้ามเส้น M2, จุดใสสองจุดใน m4 เชื่อมกัน",
+          "quote": "Culicoides kingi from Tunisia presented two pale round spots after the second radial cell (r2), one pale spot in the first medial cell (m1 of the wing crossing the median vein (M2), two separate pale spots in m4, two pale spots in anal cells (An), and one pale spot in m1 and m2 · Culicoides oxystoma had pale spots under radial cells, pale spots in m1 that did not cross M2, another pale spot between Cu1) and the edge of the wing, and two pale spots merged in m4 · The problem is the presence of similarities in the wings for females.",
+          "source": "S21"
+        }
+      ]
+    },
+    {
+      "species": "peregrinus",
+      "scientific_name": "Culicoides peregrinus",
+      "subgenus": "Hoffmania",
+      "subgenus_source": "SG22",
+      "summary_th": "สกุลย่อย Hoffmania ตัวเดียวใน 4 ชนิดของระบบ — ครึ่งปลายของ radial cell ที่ 2 อยู่ในจุดใสหลัง stigma; ประชากรในไทยมีลายใสกว้างออกเหลือง และจุดใสที่โคน mediocubital fork ลากยาวถึงขอบปีก",
+      "features": [
+        {
+          "name_en": "r-m crossvein",
+          "level": "subgenus",
+          "description_th": "จุดใสเหนือเส้นขวาง r-m ยื่นขึ้นไปจรดขอบปีกด้านหน้า และกินครึ่งโคนของ radial cell ที่ 1",
+          "quote": "Wing with pale spot over r-m crossvein meeting anterior wing margin and including proximal half of 1st radial cell",
+          "source": "S23"
+        },
+        {
+          "name_en": "Radial cells (r1, r2)",
+          "level": "subgenus",
+          "description_th": "radial cell ที่ 1 กับ 2 ยาวไม่เท่ากัน radial cell ที่ 2 ยาวและกว้าง",
+          "quote": "1st and 2nd radial cell unequal; 2nd radial cell long, broad",
+          "source": "S23"
+        },
+        {
+          "name_en": "Poststigmatic pale spot",
+          "level": "subgenus",
+          "description_th": "อย่างน้อยครึ่งปลายของ radial cell ที่ 2 อยู่ในจุดใสหลัง stigma ในภาพจากเอกสารจุดนี้ใหญ่และยื่นลงไปทางขอบหลังปีก",
+          "quote": "at least distal half included in poststigmatic pale spot",
+          "figure_note": "จุดใสหลัง stigma ขนาดใหญ่ยื่นลงด้านล่าง เห็นใน T25 Fig.2 และ PR24 Fig.2",
+          "source": "S23"
+        },
+        {
+          "name_en": "Mediocubital fork",
+          "level": "population",
+          "description_th": "ในตัวอย่างจากไทย จุดใสที่โคน mediocubital fork ลากต่อเนื่องตามเส้น M3+4 และ Cu1 ไปจนถึงขอบปีก ต่างจาก C. peregrinus แบบฉบับจากอินเดีย",
+          "quote": "the pale spot at the base of the mediocubital fork is continuous along veins M3+4 and Cu1 to the wing margin.",
+          "source": "MP23"
+        },
+        {
+          "name_en": "Wing pattern",
+          "level": "population",
+          "description_th": "จุดใสด้านโคนของ cell m1 และ m2 เชื่อมเป็นผืนเดียว ตัวอย่างจากไทยมีลายใสกว้างกว่าและออกสีเหลือง ในภาพจากเอกสารพื้นปีกเข้ม จุดใสเล็กขอบคมจำนวนมากในครึ่งปลายปีก",
+          "quote": "proximal pale spots in cell m1 and m2 confluent [S23] · some females collected from Chonburi province, central Thailand, are different from typical C. peregrinus by having more extensive, yellowish pale wing marking. [MP23]",
+          "figure_note": "พื้นปีกเข้มกับจุดใสเล็กขอบคม เห็นใน T25 Fig.2 และ PR24 Fig.2",
+          "source": "S23, MP23"
+        }
+      ]
+    }
+  ]
+}
