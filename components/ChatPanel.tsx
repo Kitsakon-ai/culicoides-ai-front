@@ -24,6 +24,12 @@ const assistantMd: Components = {
   h1: ({ children }) => <p className="text-sm font-semibold mt-3 mb-1.5 first:mt-0 border-l-2 border-current pl-2 opacity-90">{children}</p>,
   h2: ({ children }) => <p className="text-sm font-semibold mt-3 mb-1.5 first:mt-0 border-l-2 border-current pl-2 opacity-90">{children}</p>,
   h3: ({ children }) => <p className="text-xs font-semibold mt-2 mb-1 first:mt-0 opacity-70">{children}</p>,
+  // ลิงก์ DOI ในรายการอ้างอิงที่ระบบต่อท้าย — เปิดแท็บใหม่ และตัดบรรทัดได้ไม่ล้นกล่อง
+  a: ({ href, children }) => (
+    <a href={href} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 break-all opacity-90 hover:opacity-100">
+      {children}
+    </a>
+  ),
 };
 
 interface ChatPanelProps {

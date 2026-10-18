@@ -8,6 +8,7 @@ import {
   searchDocuments,
   searchDocumentsForSpecies,
   buildKnowledgeContext,
+  buildReferenceList,
   hasDocuments,
   getWingFeatures,
   getProvincesForSpecies,
@@ -16,6 +17,7 @@ import {
   type WingFeature,
 } from "@/lib/knowledge";
 import { embedText } from "@/lib/embeddings";
+import { rewriteSearchQuery } from "@/lib/query-rewrite";
 import { createTimer } from "@/lib/server-timing";
 import { allSpeciesWing, expandCodes, featureOf, shortCite, speciesWing, verifiedWingFacts } from "@/lib/wing-landmarks";
 import {
@@ -94,7 +96,7 @@ function buildExplanationPrompt(body: ChatBody, knowledge: string, wingFeatures:
     : "";
 
   const persona = body.systemPrompt?.trim() || getDefaultSystemPrompt(lang);
-  const knowledgeBlock = knowledge ? `\n\n${L.grounding}\n\n${knowledge}` : "";
+  const knowledgeBlock = knowledge ? `\n\n${L.grounding}\n${L.explanation.citeRule}\n\n${knowledge}` : "";
 
   // ป้ายบนลูกศรมาจาก getWingFeatures() ตัวเดียวกับที่ /api/annotate ใช้วาดภาพ
   // ส่งเข้า prompt ด้วยเพื่อให้คำอธิบายกับลูกศรในภาพพูดถึงจุดเดียวกันเสมอ
@@ -178,10 +180,20 @@ function buildVisionPrompt(body: ChatBody, knowledge: string, hasImage: boolean)
       )
     : L.imageMissing;
 
+  // ลำดับตามพรอมต์ P4 ที่เลือกจากการทดลอง (benchmark/rag-sources): คำสั่ง → รูปแบบคำตอบ → ตัวอย่าง
+  // → เอกสารในแท็ก → บริบทกับคำถามไว้ท้ายสุด
   // ข้อมูลปีกที่ตรวจแล้วแนบทุกครั้ง แม้ยังไม่มีผลทำนาย — คำถามเปรียบเทียบชนิด/ชนิดใกล้ชิดถามได้ตลอด
-  const knowledgeBlock = `\n\n${grounding}\n\n${verifiedWingFacts()}${knowledge ? `\n\n${knowledge}` : ""}`;
-
   return `${L.persona}
+
+${grounding}
+
+${L.answerFormat}
+
+${L.example}
+
+${L.docsOpen}
+${verifiedWingFacts()}${knowledge ? `\n\n${knowledge}` : ""}
+${L.docsClose}
 
 ${L.contextHeading}
 ${predLine}
@@ -190,7 +202,7 @@ ${imageLine}
 ${L.historyHeading}
 ${historyText}
 
-${L.questionHeading} ${body.message}${knowledgeBlock}`;
+${L.questionHeading} ${body.message}`;
 }
 
 async function urlToGeminiInlineData(url: string, lang: Lang) {
@@ -648,16 +660,26 @@ async function generateImage(provider: string, prompt: string, body: ChatBody): 
 // ---- Knowledge base (Supabase): structured facts + RAG ----
 // ดึงข้อมูลชนิดจากตาราง + ค้นย่อหน้างานวิจัยด้วย semantic search แล้วประกอบเป็น context
 // resilient: ถ้ายังไม่ได้รัน migration หรือ DB/embedding ล่ม จะคืน "" (แชตยังทำงานปกติ)
-async function getKnowledgeContext(body: ChatBody): Promise<string> {
+// คืนทั้ง context ที่ใส่ในพรอมต์ และย่อหน้าที่ค้นได้ (ใช้สร้างรายการอ้างอิงท้ายคำตอบ)
+type Knowledge = { text: string; sources: DocMatch[] };
+
+async function getKnowledgeContext(body: ChatBody): Promise<Knowledge> {
+  const none: Knowledge = { text: "", sources: [] };
   const speciesName = body.prediction?.species;
-  if (!speciesName) return "";
+  if (!speciesName) return none;
   try {
-    const facts = await getSpeciesFacts(speciesName);
+    // คลังเป็นภาษาอังกฤษ ผู้ใช้ถามภาษาไทย → เขียนเป็นคำค้นอังกฤษก่อน (ล้มเหลวจะใช้ข้อความเดิม)
+    // ยิงพร้อมกับการอ่านข้อมูลชนิด เพราะขั้นนี้ใช้เวลาราว 2 วินาที
+    const [facts, hasDocs, query] = await Promise.all([
+      getSpeciesFacts(speciesName),
+      hasDocuments(),
+      rewriteSearchQuery(body.message?.trim() || speciesName, speciesName),
+    ]);
     let docs: DocMatch[] = [];
     // ยิง embedding เฉพาะเมื่อมี documents อยู่จริง — เลี่ยงเรียกฟรีก่อน import ข้อมูล
-    if (await hasDocuments()) {
+    if (hasDocs) {
       try {
-        const emb = await embedText(body.message?.trim() || speciesName);
+        const emb = await embedText(query);
         const sinceYear = new Date().getFullYear() - 5; // งานวิจัยย้อนหลังไม่เกิน 5 ปี
         // 1) เอกสารที่ "พูดถึงชนิดนี้จริง" ก่อน (แม่นสุด, ในกรอบ 5 ปี)
         if (facts.speciesId) {
@@ -677,10 +699,10 @@ async function getKnowledgeContext(body: ChatBody): Promise<string> {
         console.error("getKnowledgeContext: RAG embed/search failed:", err);
       }
     }
-    return buildKnowledgeContext(facts, docs);
+    return { text: buildKnowledgeContext(facts, docs), sources: docs };
   } catch (err) {
     console.error("getKnowledgeContext failed:", err);
-    return "";
+    return none;
   }
 }
 
@@ -772,8 +794,8 @@ export async function POST(req: Request) {
     // คำถามความรู้ทั่วไปในขอบเขต → ไม่แนบรูป จะได้ไม่ติดอยู่กับการบรรยายภาพ
     const attachImages = body.mode !== "vision" || messageRefersToImage(body.message);
     const prompt = body.mode === "vision"
-      ? buildVisionPrompt(body, knowledge, attachImages)
-      : buildExplanationPrompt(body, knowledge, wingFeatures);
+      ? buildVisionPrompt(body, knowledge.text, attachImages)
+      : buildExplanationPrompt(body, knowledge.text, wingFeatures);
     const streamBody = attachImages ? body : { ...body, images: undefined };
     const gen = pickStream(streamBody, prompt);
 
@@ -798,15 +820,23 @@ export async function POST(req: Request) {
     const stream = new ReadableStream<Uint8Array>({
       async start(controller) {
         let chars = 0;
+        let full = "";
         try {
           if (!first.done && first.value) {
             chars += first.value.length;
+            full += first.value;
             controller.enqueue(encoder.encode(first.value));
           }
           for await (const chunk of gen) {
             chars += chunk.length;
+            full += chunk;
             controller.enqueue(encoder.encode(chunk));
           }
+          // ต่อท้ายบรรณานุกรมของ [S#] ที่คำตอบอ้างถึง — สร้างจากย่อหน้าที่ค้นได้จริง ไม่ผ่านแบบจำลอง
+          const refs = buildReferenceList(full, knowledge.sources, PROMPT_PACK[resolveLang(body.lang)].referencesHeading);
+          if (refs) controller.enqueue(encoder.encode(`
+
+${refs}`));
         } catch (err) {
           // Already responded 200 + started streaming — can't change status now,
           // so append a visible marker instead of failing silently.

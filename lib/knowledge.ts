@@ -202,6 +202,9 @@ export async function getWingFeatures(species?: string | null): Promise<WingFeat
 
 // ค้น documents ที่ใกล้เคียงเชิงความหมาย (cosine similarity ผ่าน pgvector) แบบ global
 // sinceYear = กรอบ "งานวิจัยย้อนหลังไม่เกิน N ปี" (null = ไม่จำกัดปี; year null ให้ผ่านเสมอ)
+//
+// ใช้ดัชนี HNSW (ประมาณค่า) — ค้นทั้งคลังไม่มีตัวกรองชนิด และเอกสารเกือบทั้งหมดอยู่ในกรอบปีอยู่แล้ว
+// วัดแล้ว: ถ้าคำนวณระยะครบทุกแถวของคลัง ~16,000 ย่อหน้า ใช้ 6–9 วินาทีตอนแคชเย็น
 export async function searchDocuments(
   embedding: number[],
   opts?: { limit?: number; sinceYear?: number | null }
@@ -228,6 +231,10 @@ export async function searchDocuments(
 
 // ค้นเฉพาะงานวิจัยที่ "พูดถึงชนิดนี้จริง" (ผ่าน document_species) + กรอบ 5 ปีย้อนหลัง
 // แม่นกว่า global เพราะกรองมาแล้วว่าเอกสารกล่าวถึงชนิดนั้น
+//
+// ค้นแบบแม่นตรง (exact) ผ่าน CTE แบบ materialized แทนดัชนี HNSW — ดัชนีประมาณค่าจะดึงผู้สมัคร
+// ราว 40 แถวจากทั้งคลังก่อนแล้วค่อยกรองชนิด เมื่อคลังใหญ่ (~16,000 ย่อหน้า) จึงได้ผลไม่ครบ
+// แถวที่ผูกกับชนิดหนึ่งมีไม่กี่ร้อยแถว คำนวณครบทุกแถวใช้ราว 0.25 วินาที
 export async function searchDocumentsForSpecies(
   embedding: number[],
   speciesId: number,
@@ -240,18 +247,47 @@ export async function searchDocumentsForSpecies(
 
   try {
     return await prisma.$queryRaw<DocMatch[]>`
-      select d.content, d.source, d.year, 1 - (d.embedding <=> ${vec}::vector) as similarity
-      from documents d
-      join document_species ds on ds.document_id = d.id
-      where d.embedding is not null and ds.species_id = ${speciesId}
-        and (${since}::int is null or d.year is null or d.year >= ${since})
-      order by d.embedding <=> ${vec}::vector
+      with scored as materialized (
+        select d.content, d.source, d.year, d.embedding <=> ${vec}::vector as dist
+        from documents d
+        join document_species ds on ds.document_id = d.id
+        where d.embedding is not null and ds.species_id = ${speciesId}
+          and (${since}::int is null or d.year is null or d.year >= ${since})
+      )
+      select content, source, year, 1 - dist as similarity
+      from scored
+      order by dist
       limit ${limit}
     `;
   } catch (err) {
     console.error("searchDocumentsForSpecies error:", err);
     return [];
   }
+}
+
+// รายการเอกสารอ้างอิงท้ายคำตอบ — ระบบสร้างเองจากย่อหน้าที่ค้นได้จริง เฉพาะ [S#] ที่คำตอบอ้างถึง
+// ลิงก์จึงถูกฉบับเสมอ (เดิมให้แบบจำลองเขียนรายการเองแล้วผูก DOI ผิดฉบับ)
+// รองรับ [S1] [S1][S2] [S1, S3] และช่วง [S1–S3]
+export function buildReferenceList(answer: string, docs: DocMatch[], heading: string): string {
+  if (!docs.length) return "";
+  const cited = new Set<number>();
+  for (const group of answer.matchAll(/\[([^\]\n]*?S\d+[^\]\n]*?)\]/g)) {
+    for (const r of group[1].matchAll(/S(\d+)(?:\s*[–-]\s*S?(\d+))?/g)) {
+      const a = Number(r[1]);
+      const b = r[2] ? Number(r[2]) : a;
+      for (let n = Math.min(a, b); n <= Math.max(a, b) && n - Math.min(a, b) < 10; n++) cited.add(n);
+    }
+  }
+  // หลายย่อหน้ามักมาจากงานเรื่องเดียวกัน → รวมเป็นบรรทัดเดียว เช่น [S1, S3]
+  const bySource = new Map<string, number[]>();
+  for (const n of [...cited].filter((n) => n >= 1 && n <= docs.length).sort((x, y) => x - y)) {
+    const d = docs[n - 1];
+    const src = d.source ?? "(ไม่ทราบแหล่ง)";
+    const key = `${src}${d.year && !src.includes(`(${d.year})`) ? ` (${d.year})` : ""}`;
+    bySource.set(key, [...(bySource.get(key) ?? []), n]);
+  }
+  const items = [...bySource].map(([src, ns]) => `- **[${ns.map((n) => `S${n}`).join(", ")}]** ${src}`);
+  return items.length ? `${heading}\n${items.join("\n")}` : "";
 }
 
 // ประกอบ facts + documents เป็น context block ยัดเข้า prompt
@@ -284,11 +320,15 @@ export function buildKnowledgeContext(facts: SpeciesFacts, docs: DocMatch[]): st
     parts.push("[ข้อมูลจากฐานข้อมูล — ใช้เป็นแหล่งหลัก]\n" + lines.join("\n"));
   }
 
+  // ย่อหน้างานวิจัยติดรหัส [S#] พร้อมบรรณานุกรมเต็ม (ผู้แต่ง ปี ชื่อเรื่อง วารสาร DOI ซึ่งเก็บอยู่ใน
+  // documents.source) — โมเดลอ้างด้วยรหัสแทนการเดาชื่อไฟล์/ลิงก์ ซึ่งเคยทำให้ผูกลิงก์ผิดฉบับ
   if (docs.length) {
     const dl = docs
-      .map((d, i) => `(${i + 1}) ${d.content}${d.source ? ` [${d.source}${d.year ? `, ${d.year}` : ""}]` : ""}`)
-      .join("\n");
-    parts.push("[ข้อความจากงานวิจัย (ค้นด้วย semantic search)]\n" + dl);
+      .map((d, i) => `[S${i + 1}] ${d.source ?? "(ไม่ทราบแหล่ง)"}${d.source && d.year && !d.source.includes(`(${d.year})`) ? ` (${d.year})` : ""}\n"${d.content.replace(/\s+/g, " ").trim()}"`)
+      .join("\n\n");
+    parts.push("[ข้อความจากงานวิจัย (ค้นด้วย semantic search) — แต่ละย่อหน้ามีรหัสแหล่ง [S#] พร้อมข้อมูลบรรณานุกรม]\n" + dl);
+  } else if (facts.scientificName) {
+    parts.push("[ข้อความจากงานวิจัย] (ไม่มี — รอบนี้ระบบค้นไม่พบย่อหน้างานวิจัยที่เกี่ยวข้อง)");
   }
 
   return parts.join("\n\n");

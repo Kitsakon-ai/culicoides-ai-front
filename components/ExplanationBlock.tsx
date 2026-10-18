@@ -75,6 +75,12 @@ const sectionHeading = (children: ReactNode) => (
 );
 
 const mdComponents: Components = {
+  // ลิงก์ DOI ในรายการอ้างอิงที่ระบบต่อท้าย — เปิดแท็บใหม่ และตัดบรรทัดได้ไม่ล้นกล่อง
+  a: ({ href, children }) => (
+    <a href={href} target="_blank" rel="noopener noreferrer" className="text-accent underline underline-offset-2 break-all">
+      {children}
+    </a>
+  ),
   h1: ({ children }) => sectionHeading(children),
   h2: ({ children }) => sectionHeading(children),
   h3: ({ children }) => (
